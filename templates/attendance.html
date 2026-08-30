@@ -2,48 +2,72 @@
 {% block content %}
 <h2>Attendance Records</h2>
 <div class="card p-3">
-    <!-- DINAGDAG: HEADER WITH SEARCH + RESET BUTTON -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div style="width: 60%;">
-            <input type="text" id="searchInput" class="form-control" placeholder="🔍 Search by Date, Name, or Student ID...">
-        </div>
-        {% if session['role'] == 'Admin' %}
-        <!-- ITO YUNG RESET BUTTON -->
-        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
-            <i class="bi bi-trash"></i> Reset Attendance
-        </button>
-        {% endif %}
+  <!-- HEADER WITH DATE FILTER + SEARCH + RESET -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="d-flex gap-2 align-items-center">
+      <label class="fw-bold mb-0">Select Date:</label>
+      <form method="GET" action="{{ url_for('attendance') }}" id="dateForm">
+        <select name="date" class="form-select" onchange="this.form.submit()">
+          <option value="">-- All History --</option>
+          {% for d in all_dates %}
+          <option value="{{ d['date'] }}" {% if d['date'] == filter_date %}selected{% endif %}>
+            {{ d['date'] }} {% if loop.first %} (Today) {% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      <a href="{{ url_for('attendance') }}" class="btn btn-outline-primary btn-sm">Today</a>
     </div>
 
-    <table class="table table-striped" id="attendanceTable"> <!-- DINAGDAGAN LANG NG ID -->
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Student Name</th>
-                <th>Student ID</th>
-                <th>Time In</th>
-                <th>Time Out</th>
-                <th>Status</th>
-                <th>Scanned By</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for r in records %}
-            <tr>
-                <td>{{ r['date'] }}</td>
-                <td>{{ r['name'] }}</td>
-                <td>{{ r['student_id'] }}</td>
-                <td>{{ format_time(r['time_in']) }}</td>
-                <td>{{ format_time(r['time_out']) }}</td>
-                <td><span class="badge bg-{{ 'success' if r['status']=='Present' else 'warning' if r['status']=='Late' else 'danger' }}">{{ r['status'] }}</span></td>
-                <td>{{ r['scanned_by'] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="d-flex gap-2 align-items-center" style="width: 50%;">
+      <input type="text" id="searchInput" class="form-control" placeholder="🔍 Search Name or ID in this date...">
+      {% if session['role'] == 'Admin' %}
+      <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
+        <i class="bi bi-trash"></i> Reset
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="alert alert-info py-2 mb-3">
+    <i class="bi bi-calendar"></i> Showing attendance for: <strong>{{ filter_date }}</strong> - Total: <strong>{{ records|length }}</strong> students
+  </div>
+
+  <table class="table table-striped" id="attendanceTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Student Name</th>
+        <th>Student ID</th>
+        <th>Time In</th>
+        <th>Time Out</th>
+        <th>Status</th>
+        <th>Scanned By</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td>{{ r['date'] }}</td>
+        <td>{{ r['name'] }}</td>
+        <td>{{ r['student_id'] }}</td>
+        <td>{{ format_time(r['time_in']) }}</td>
+        <td>{{ format_time(r['time_out']) }}</td>
+        <td><span class="badge bg-{{ 'success' if r['status']=='Present' else 'warning' if r['status']=='Late' else 'danger' }}">{{ r['status'] }}</span></td>
+        <td>{{ r['scanned_by'] }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">
+          <i class="bi bi-inbox"></i> No attendance found for {{ filter_date }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
-<!-- DINAGDAG: RESET CONFIRMATION MODAL -->
+<!-- RESET CONFIRMATION MODAL -->
 <div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -57,34 +81,34 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <form action="{{ url_for('reset_attendance') }}" method="POST" style="display: inline;">
-            <button type="submit" class="btn btn-danger">Yes, Reset All</button>
+          <button type="submit" class="btn btn-danger">Yes, Reset All</button>
         </form>
       </div>
     </div>
   </div>
 </div>
 
-<!-- DINAGDAG LANG ITO: SCRIPT PARA SA LIVE SEARCH -->
+<!-- SCRIPT PARA SA LIVE SEARCH -->
 <script>
-document.getElementById('searchInput').addEventListener('keyup', function() {
+  document.getElementById('searchInput').addEventListener('keyup', function() {
     let filter = this.value.toLowerCase();
     let table = document.getElementById('attendanceTable');
     let tr = table.getElementsByTagName('tr');
-    for (let i = 1; i < tr.length; i++) { // i=1 para di kasama header
-        let td_date = tr[i].getElementsByTagName('td')[0]; // Date
-        let td_name = tr[i].getElementsByTagName('td')[1]; // Name
-        let td_id = tr[i].getElementsByTagName('td')[2]; // Student ID
-        if(td_date || td_name || td_id){
-            let txtValue_date = td_date.textContent || td_date.innerText;
-            let txtValue_name = td_name.textContent || td_name.innerText;
-            let txtValue_id = td_id.textContent || td_id.innerText;
-            if (txtValue_date.toLowerCase().indexOf(filter) > -1 || txtValue_name.toLowerCase().indexOf(filter) > -1 || txtValue_id.toLowerCase().indexOf(filter) > -1) {
-                tr[i].style.display = "";
-            } else {
-                tr[i].style.display = "none";
-            }
+    for (let i = 1; i < tr.length; i++) {
+      let td_date = tr[i].getElementsByTagName('td')[0];
+      let td_name = tr[i].getElementsByTagName('td')[1];
+      let td_id = tr[i].getElementsByTagName('td')[2];
+      if(td_date || td_name || td_id){
+        let txtValue_date = td_date.textContent || td_date.innerText;
+        let txtValue_name = td_name.textContent || td_name.innerText;
+        let txtValue_id = td_id.textContent || td_id.innerText;
+        if (txtValue_date.toLowerCase().indexOf(filter) > -1 || txtValue_name.toLowerCase().indexOf(filter) > -1 || txtValue_id.toLowerCase().indexOf(filter) > -1) {
+          tr[i].style.display = "";
+        } else {
+          tr[i].style.display = "none";
         }
+      }
     }
-});
+  });
 </script>
 {% endblock %}
