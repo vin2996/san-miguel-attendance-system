@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h2>Student List</h2>
+    <a href="{{ url_for('register_student') }}" class="btn btn-primary"><i class="bi bi-plus"></i> Add Student</a>
+</div>
+<div class="card p-3">
+    <div class="mb-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="🔍 Search by Student ID or Name...">
+    </div>
+    <table class="table" id="studentTable">
+        <thead>
+            <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Grade & Section</th>
+                <th>Parent/Guardian</th> <!-- BINAGO: Title -->
+                <th>QR Code</th>
+                {% if session['role'] == 'Admin' %}
+                <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td>{{ s[1] }}</td>
+                <td>{{ s[2] }}</td>
+                <td>{{ s[3] }}</td>
+                <td>
+                    <b>{{ s[4] }}</b> <br> <!-- DINAGDAG: Guardian Name -->
+                    <small class="text-muted">{{ s[5] }}</small> <!-- DINAGDAG: Contact Number -->
+                </td>
+                <td>
+                    <a href="{{ url_for('static', filename='qr_codes/' + s[1] + '.png') }}" download class="btn btn-sm btn-success">
+                        <i class="bi bi-download"></i>
+                    </a>
+                </td>
+                {% if session['role'] == 'Admin' %}
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{{ url_for('edit_student', student_id=s[1]) }}" class="btn btn-sm btn-warning">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <form action="{{ url_for('delete_student', student_id=s[1]) }}" method="POST" onsubmit="return confirm('Sigurado ka ba na ide-delete si {{ s[2] }}? Hindi na ito maibabalik.');">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </form>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+document.getElementById('searchInput').addEventListener('keyup', function() {
+    let filter = this.value.toLowerCase();
+    let table = document.getElementById('studentTable');
+    let tr = table.getElementsByTagName('tr');
+    for (let i = 1; i < tr.length; i++) {
+        let td_id = tr[i].getElementsByTagName('td')[0]; // Student ID
+        let td_name = tr[i].getElementsByTagName('td')[1]; // Name
+        if(td_id || td_name){
+            let txtValue_id = td_id.textContent || td_id.innerText;
+            let txtValue_name = td_name.textContent || td_name.innerText;
+            if (txtValue_id.toLowerCase().indexOf(filter) > -1 || txtValue_name.toLowerCase().indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

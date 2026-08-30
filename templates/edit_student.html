@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4">
+    <h2>Edit Student: {{ student[2] }}</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label">Student ID</label>
+            <input type="text" class="form-control" value="{{ student[1] }}" disabled>
+            <small class="text-muted">Hindi pwedeng i-edit ang Student ID</small>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input type="text" name="name" class="form-control" value="{{ student[2] }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Grade & Section</label>
+            <input type="text" name="grade_section" class="form-control" value="{{ student[3] }}" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Parent Name</label>
+            <input type="text" name="parent_name" class="form-control" value="{{ student[4] }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Parent Contact</label>
+            <input type="text" name="parent_contact" class="form-control" value="{{ student[5] }}">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Changes</button>
+        <a href="{{ url_for('students') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}User Approvals - {{ school }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-person-check"></i> Pending User Approvals</h2>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><b>{{ user.username }}</b></td>
+                        <td><span class="badge bg-info">{{ user.role }}</span></td>
+                        <td class="text-center">
+                            <a href="{{ url_for('approve_user', id=user.id) }}" class="btn btn-success btn-sm" onclick="return confirm('Approve this user?')">
+                                <i class="bi bi-check-circle"></i> Approve
+                            </a>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-3"></i><br>
+                            No pending approvals
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

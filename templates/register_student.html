@@ -1,0 +1,51 @@
+{% extends "base.html" %} 
+{% block title %}Register Student{% endblock %}
+
+{% block content %} 
+<h2 class="mb-4"><i class="bi bi-person-plus-fill"></i> Register New Student</h2> 
+<div class="row"> 
+    <div class="col-md-6"> 
+        <div class="card shadow-sm p-4"> 
+            <form method="POST"> 
+                <div class="mb-3">
+                    <label>Student ID</label>
+                    <input type="text" name="student_id" class="form-control" required>
+                </div> 
+                <div class="mb-3">
+                    <label>Student Name</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div> 
+                <div class="mb-3">
+                    <label>Grade & Section</label>
+                    <input type="text" name="grade_section" value="{{ grade }}" class="form-control">
+                </div> 
+                <div class="mb-3">
+                    <label>Parent / Guardian Name</label>
+                    <input type="text" name="parent_name" class="form-control">
+                </div> 
+                <div class="mb-3">
+                    <label>Parent / Guardian Contact No.</label>
+                    <input type="text" name="parent_contact" class="form-control" placeholder="09xxxxxxxxx">
+                </div> 
+                <button class="btn btn-primary w-100"><i class="bi bi-save"></i> Register Student</button> 
+            </form> 
+        </div> 
+    </div> 
+
+    <div class="col-md-6"> 
+        <div class="card shadow-sm p-4 text-center"> 
+            <h5><i class="bi bi-qr-code"></i> Generated QR Code</h5> 
+            {% if qr_path %}
+                <img src="{{ url_for('static', filename=qr_path) }}" class="img-fluid my-3" style="max-width: 250px; border: 1px solid #ddd; padding: 5px;">
+                <p class="fw-bold">{{ student_name }}</p>
+                <a href="{{ url_for('static', filename=qr_path) }}" download="{{ student_id }}.png" class="btn btn-success btn-sm">
+                    <i class="bi bi-download"></i> Download QR
+                </a>
+            {% else %}
+                <p class="text-muted mt-3">QR will appear here after registration</p> 
+                <small>*Each student has a unique QR Code.</small>
+            {% endif %}
+        </div> 
+    </div> 
+</div> 
+{% endblock %}

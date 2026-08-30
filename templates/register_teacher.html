@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h2><i class="bi bi-person-plus"></i> Register Teacher</h2>
+    <a href="{{ url_for('teachers') }}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Back to List</a>
+</div>
+<div class="card p-4">
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Teacher ID</label>
+                <input type="text" name="teacher_id" class="form-control" placeholder="e.g. T001" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Full Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Juan Dela Cruz" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Subject / Grade Handled</label>
+                <input type="text" name="subject" class="form-control" placeholder="e.g. Math, Grade 6" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Contact Number</label>
+                <input type="text" name="contact" class="form-control" placeholder="e.g. 09123456789" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Save Teacher</button>
+    </form>
+</div>
+{% endblock %}

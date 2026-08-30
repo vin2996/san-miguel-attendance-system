@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Reports - {{ school }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3><i class="bi bi-bar-chart-fill"></i> Attendance Report for {{ today.strftime('%B %d, %Y') }}</h3>
+    {% if session['role'] == 'Admin' %}
+    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#resetModal">
+        <i class="bi bi-trash3"></i> Reset Attendance
+    </button>
+    {% endif %}
+</div>
+
+<!-- Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-primary shadow-sm">
+            <div class="card-body">
+                <h5><i class="bi bi-people-fill"></i> Total</h5>
+                <h2 class="fw-bold">{{ total }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-success shadow-sm">
+            <div class="card-body">
+                <h5><i class="bi bi-person-check-fill"></i> Present</h5>
+                <h2 class="fw-bold">{{ present }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-warning shadow-sm">
+            <div class="card-body">
+                <h5><i class="bi bi-clock-fill"></i> Late</h5>
+                <h2 class="fw-bold">{{ late }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-bg-danger shadow-sm">
+            <div class="card-body">
+                <h5><i class="bi bi-person-x-fill"></i> Absent</h5>
+                <h2 class="fw-bold">{{ absent }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirm Reset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <b>ALL</b> attendance records? This cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('reset_attendance') }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Yes, Reset All</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
