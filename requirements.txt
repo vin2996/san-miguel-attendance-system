@@ -5,3 +5,4 @@ gunicorn
 qrcode
 python-dotenv
 semaphore
+requests
