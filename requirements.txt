@@ -6,3 +6,4 @@ qrcode
 python-dotenv
 semaphore
 requests
+pytz
