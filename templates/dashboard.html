@@ -1,122 +1,126 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - {{ school }}{% endblock %}
-
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
-    <h5 class="text-muted">{{ today.strftime('%B %d, %Y') }}</h5>
+  <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+  <h5 class="text-muted" id="live-date">{{ today.strftime('%B %d, %Y') }}</h5>
 </div>
+
+<script>
+  function updatePHDate() {
+    const options = { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' };
+    const phDate = new Date().toLocaleDateString('en-US', options);
+    document.getElementById('live-date').innerText = phDate;
+  }
+  updatePHDate();
+</script>
 
 <!-- STATS CARDS -->
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
-        <div class="card text-bg-primary shadow-sm">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-people-fill"></i> Total Students</h6>
-                <h2 class="fw-bold">{{ total }}</h2>
-                <small>{{ grade }}</small>
-            </div>
-        </div>
+  <div class="col-md-3 mb-3">
+    <div class="card text-bg-primary shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title"><i class="bi bi-people-fill"></i> Total Students</h6>
+        <h2 class="fw-bold">{{ total }}</h2>
+        <small>{{ grade }}</small>
+      </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card text-bg-success shadow-sm">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-person-check-fill"></i> Present</h6>
-                <h2 class="fw-bold">{{ present }}</h2>
-                <small>Timed In Today</small>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card text-bg-success shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title"><i class="bi bi-person-check-fill"></i> Present</h6>
+        <h2 class="fw-bold">{{ present }}</h2>
+        <small>Timed In Today</small>
+      </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card text-bg-warning shadow-sm">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-clock-fill"></i> Late</h6>
-                <h2 class="fw-bold">{{ late }}</h2>
-                <small>After 8:00 AM</small>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card text-bg-warning shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title"><i class="bi bi-clock-fill"></i> Late</h6>
+        <h2 class="fw-bold">{{ late }}</h2>
+        <small>After 8:00 AM</small>
+      </div>
     </div>
-    <div class="col-md-3 mb-3">
-        <div class="card text-bg-danger shadow-sm">
-            <div class="card-body">
-                <h6 class="card-title"><i class="bi bi-person-x-fill"></i> Absent</h6>
-                <h2 class="fw-bold">{{ absent }}</h2>
-                <small>Not Timed In</small>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3 mb-3">
+    <div class="card text-bg-danger shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title"><i class="bi bi-person-x-fill"></i> Absent</h6>
+        <h2 class="fw-bold">{{ absent }}</h2>
+        <small>Not Timed In</small>
+      </div>
     </div>
+  </div>
 </div>
-
 <div class="row">
-    <!-- RECENT ACTIVITY -->
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="bi bi-activity"></i> Recent Activity Today</h5>
-            </div>
-            <div class="card-body">
-                {% if recent %}
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Time In</th>
-                            <th>Status</th>
-                            <th>Scanned By</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for r in recent %}
-                        <tr>
-                            <td>{{ r['name'] }}</td>
-                            <td>{{ format_time(r['time_in']) }}</td>
-                            <td>
-                                {% if r['status'] == 'Present' %}
-                                    <span class="badge bg-success">{{ r['status'] }}</span>
-                                {% else %}
-                                    <span class="badge bg-warning text-dark">{{ r['status'] }}</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ r['scanned_by'] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+  <!-- RECENT ACTIVITY -->
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="bi bi-activity"></i> Recent Activity Today</h5>
+      </div>
+      <div class="card-body">
+        {% if recent %}
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Time In</th>
+              <th>Status</th>
+              <th>Scanned By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in recent %}
+            <tr>
+              <td>{{ r['name'] }}</td>
+              <td>{{ format_time(r['time_in']) }}</td>
+              <td>
+                {% if r['status'] == 'Present' %}
+                <span class="badge bg-success">{{ r['status'] }}</span>
                 {% else %}
-                <div class="text-center text-muted py-4">
-                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
-                    <p>No attendance recorded yet today.</p>
-                </div>
+                <span class="badge bg-warning text-dark">{{ r['status'] }}</span>
                 {% endif %}
-            </div>
+              </td>
+              <td>{{ r['scanned_by'] }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+          <p>No attendance recorded yet today.</p>
         </div>
+        {% endif %}
+      </div>
     </div>
-
-    <!-- QUICK LINKS -->
-    <div class="col-md-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="bi bi-lightning-fill"></i> Quick Actions</h5>
-            </div>
-            <div class="card-body d-grid gap-2">
-                <a href="{{ url_for('scanner') }}" class="btn btn-primary">
-                    <i class="bi bi-qr-code-scan"></i> Open Scanner
-                </a>
-                <a href="{{ url_for('attendance') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-list-check"></i> View All Attendance
-                </a>
-                <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-bar-chart-fill"></i> View Reports
-                </a>
-                {% if session['role'] == 'Admin' %}
-                <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
-                    <i class="bi bi-person-plus-fill"></i> Manage Students
-                </a>
-                {% endif %}
-            </div>
-        </div>
-
-        
+  </div>
+  <!-- QUICK LINKS -->
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header bg-light">
+        <h5 class="mb-0"><i class="bi bi-lightning-fill"></i> Quick Actions</h5>
+      </div>
+      <div class="card-body d-grid gap-2">
+        <a href="{{ url_for('scanner') }}" class="btn btn-primary">
+          <i class="bi bi-qr-code-scan"></i> Open Scanner
+        </a>
+        <a href="{{ url_for('attendance') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-list-check"></i> View All Attendance
+        </a>
+        <a href="{{ url_for('reports') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-bar-chart-fill"></i> View Reports
+        </a>
+        {% if session['role'] == 'Admin' %}
+        <a href="{{ url_for('students') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-person-plus-fill"></i> Manage Students
+        </a>
+        {% endif %}
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}
