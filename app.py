@@ -4,7 +4,7 @@ import os
 import sqlite3
 from datetime import datetime, date
 import sms_service
-import pytz
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
@@ -13,7 +13,7 @@ LATE_CUTOFF = "08:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
 GRADE_LEVEL = "Grade 6"
 
-PH_TZ = pytz.timezone('Asia/Manila')
+PH_TZ = ZoneInfo('Asia/Manila')
 
 def get_ph_date():
     return datetime.now(PH_TZ).date()
@@ -209,9 +209,7 @@ def attendance():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     db = get_db()
-    # NEW: Kukunin yung date na pinili, default TODAY
     filter_date = request.args.get('date', get_ph_date().isoformat())
-    # Para sa dropdown ng history
     all_dates = db.execute("SELECT DISTINCT date FROM attendance ORDER BY date DESC").fetchall()
     records = db.execute("SELECT a.*, s.name FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=? ORDER BY a.time_in DESC", [filter_date]).fetchall()
     return render_template('attendance.html', records=records, all_dates=all_dates, filter_date=filter_date, school=SCHOOL_NAME, grade=GRADE_LEVEL, format_time=format_time_12hr)
