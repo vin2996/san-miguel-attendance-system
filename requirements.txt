@@ -5,3 +5,5 @@ gunicorn
 qrcode
 python-dotenv
 requests
+pillow
+tzdata
