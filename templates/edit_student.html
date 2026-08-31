@@ -1,31 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card p-4">
-    <h2>Edit Student: {{ student[2] }}</h2>
-    <form method="POST">
-        <div class="mb-3">
-            <label class="form-label">Student ID</label>
-            <input type="text" class="form-control" value="{{ student[1] }}" disabled>
-            <small class="text-muted">Hindi pwedeng i-edit ang Student ID</small>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Name</label>
-            <input type="text" name="name" class="form-control" value="{{ student[2] }}" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Grade & Section</label>
-            <input type="text" name="grade_section" class="form-control" value="{{ student[3] }}" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Parent Name</label>
-            <input type="text" name="parent_name" class="form-control" value="{{ student[4] }}">
-        </div>
-        <div class="mb-3">
-            <label class="form-label">Parent Contact</label>
-            <input type="text" name="parent_contact" class="form-control" value="{{ student[5] }}">
-        </div>
-        <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Changes</button>
-        <a href="{{ url_for('students') }}" class="btn btn-secondary">Cancel</a>
-    </form>
+<h2>Edit Student: {{ student[2] }}</h2>
+<form method="POST" id="editForm">
+<div class="mb-3">
+<label class="form-label">Student ID</label>
+<input type="text" class="form-control" value="{{ student[1] }}" disabled>
+<small class="text-muted">Hindi pwedeng i-edit ang Student ID</small>
 </div>
+<div class="mb-3">
+<label class="form-label">Name</label>
+<input type="text" name="name" class="form-control" value="{{ student[2] }}" required>
+</div>
+
+<!-- FIXED FOR MULTIPLE SECTIONS -->
+<div class="row">
+<div class="col-md-6 mb-3">
+<label class="form-label">Grade Level</label>
+<select id="grade_level" class="form-control" required>
+<option value="Grade 1">Grade 1</option>
+<option value="Grade 2">Grade 2</option>
+<option value="Grade 3">Grade 3</option>
+<option value="Grade 4">Grade 4</option>
+<option value="Grade 5">Grade 5</option>
+<option value="Grade 6">Grade 6</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label class="form-label">Section</label>
+<select id="section_only" class="form-control" required>
+<option value="A">Section A</option>
+<option value="B">Section B</option>
+<option value="C">Section C</option>
+<option value="Mabini">Mabini</option>
+<option value="Bonifacio">Bonifacio</option>
+<option value="Rizal">Rizal</option>
+<option value="Luna">Luna</option>
+</select>
+</div>
+</div>
+
+<input type="hidden" name="grade_section" id="grade_section">
+
+<div class="mb-3">
+<label class="form-label">Parent Name</label>
+<input type="text" name="parent_name" class="form-control" value="{{ student[4] }}">
+</div>
+<div class="mb-3">
+<label class="form-label">Parent Contact</label>
+<input type="text" name="parent_contact" class="form-control" value="{{ student[5] }}">
+</div>
+<button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> Save Changes</button>
+<a href="{{ url_for('students') }}" class="btn btn-secondary">Cancel</a>
+</form>
+</div>
+
+<script>
+// Current value from DB like "Grade 6 - Section A" or "Grade 6 section A"
+var currentVal = "{{ student[3] }}";
+
+function detectGrade() {
+    if (currentVal.includes("Grade 1")) return "Grade 1";
+    if (currentVal.includes("Grade 2")) return "Grade 2";
+    if (currentVal.includes("Grade 3")) return "Grade 3";
+    if (currentVal.includes("Grade 4")) return "Grade 4";
+    if (currentVal.includes("Grade 5")) return "Grade 5";
+    return "Grade 6";
+}
+
+function detectSection() {
+    // hanapin kung may A, B, C, Mabini etc.
+    var sections = ["A", "B", "C", "Mabini", "Bonifacio", "Rizal", "Luna"];
+    for (var s of sections) {
+        if (currentVal.includes(s)) return s;
+    }
+    return "A";
+}
+
+document.getElementById('grade_level').value = detectGrade();
+document.getElementById('section_only').value = detectSection();
+
+// On submit combine ulit
+document.getElementById('editForm').addEventListener('submit', function() {
+    var grade = document.getElementById('grade_level').value;
+    var section = document.getElementById('section_only').value;
+    document.getElementById('grade_section').value = grade + " - Section " + section;
+});
+
+// Set initial hidden value
+document.getElementById('grade_section').value = currentVal;
+</script>
+
 {% endblock %}
