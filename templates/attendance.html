@@ -1,3 +1,4 @@
+
 {% extends "base.html" %}
 {% block content %}
 <h2>Attendance Records</h2>
@@ -28,11 +29,7 @@
 </div>
 </div>
 <div class="alert alert-info py-2 mb-3">
-<i class="bi bi-calendar"></i> Showing attendance for: <strong>{{ filter_date }}</strong> - Total: <strong>{{ records|length }}</strong> students |
-<span class="badge bg-success">Morning In</span>
-<span class="badge bg-warning text-dark">Lunch Out</span>
-<span class="badge bg-primary">Afternoon In</span>
-<span class="badge bg-danger">Afternoon Out</span>
+<i class="bi bi-calendar"></i> Showing attendance for: <strong>{{ filter_date }}</strong> - Total: <strong>{{ records|length }}</strong> students | <span class="badge bg-success">AM>7:30 Late</span> <span class="badge bg-primary">PM>1:00 Late</span>
 </div>
 <table class="table table-striped" id="attendanceTable">
 <thead>
@@ -40,9 +37,9 @@
 <th>Date</th>
 <th>Student Name</th>
 <th>Student ID</th>
-<th><span class="badge bg-success">AM In</span><br>Morning In</th>
+<th><span class="badge bg-success">AM In</span><br>Morning In<br><small>7:30 cutoff</small></th>
 <th><span class="badge bg-warning text-dark">Lunch</span><br>Lunch Out</th>
-<th><span class="badge bg-primary">PM In</span><br>Afternoon In</th>
+<th><span class="badge bg-primary">PM In</span><br>Afternoon In<br><small>1:00 cutoff</small></th>
 <th><span class="badge bg-danger">PM Out</span><br>Afternoon Out</th>
 <th>Status</th>
 <th>Scanned By</th>
@@ -54,9 +51,30 @@
 <td>{{ r['date'] }}</td>
 <td>{{ r['name'] }}</td>
 <td>{{ r['student_id'] }}</td>
-<td>{{ format_time(r['time_in_am'] or r['time_in']) }}</td>
+<td>
+{{ format_time(r['time_in_am'] or r['time_in']) }}
+{% if r['time_in_am'] or r['time_in'] %}
+<br>
+{% set t_am = r['time_in_am'] or r['time_in'] %}
+{% if t_am > late_am %}
+<span class="badge bg-warning text-dark">Late</span>
+{% else %}
+<span class="badge bg-success">Present</span>
+{% endif %}
+{% endif %}
+</td>
 <td>{{ format_time(r['time_out_am']) }}</td>
-<td>{{ format_time(r['time_in_pm']) }}</td>
+<td>
+{{ format_time(r['time_in_pm']) }}
+{% if r['time_in_pm'] %}
+<br>
+{% if r['time_in_pm'] > late_pm %}
+<span class="badge bg-warning text-dark">Late</span>
+{% else %}
+<span class="badge bg-success">Present</span>
+{% endif %}
+{% endif %}
+</td>
 <td>{{ format_time(r['time_out_pm'] or r['time_out']) }}</td>
 <td><span class="badge bg-{{ 'success' if r['status']=='Present' else 'warning' if r['status']=='Late' else 'danger' }}">{{ r['status'] }}</span></td>
 <td>{{ r['scanned_by'] }}</td>
