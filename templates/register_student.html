@@ -1,51 +1,86 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
 {% block title %}Register Student{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-person-plus-fill"></i> Register New Student</h2>
+<div class="row">
+<div class="col-md-6">
+<div class="card shadow-sm p-4">
+<form method="POST" id="registerForm">
+<div class="mb-3">
+<label>Student ID</label>
+<input type="text" name="student_id" class="form-control" required>
+</div>
+<div class="mb-3">
+<label>Student Name</label>
+<input type="text" name="name" class="form-control" required>
+</div>
 
-{% block content %} 
-<h2 class="mb-4"><i class="bi bi-person-plus-fill"></i> Register New Student</h2> 
-<div class="row"> 
-    <div class="col-md-6"> 
-        <div class="card shadow-sm p-4"> 
-            <form method="POST"> 
-                <div class="mb-3">
-                    <label>Student ID</label>
-                    <input type="text" name="student_id" class="form-control" required>
-                </div> 
-                <div class="mb-3">
-                    <label>Student Name</label>
-                    <input type="text" name="name" class="form-control" required>
-                </div> 
-                <div class="mb-3">
-                    <label>Grade & Section</label>
-                    <input type="text" name="grade_section" value="{{ grade }}" class="form-control">
-                </div> 
-                <div class="mb-3">
-                    <label>Parent / Guardian Name</label>
-                    <input type="text" name="parent_name" class="form-control">
-                </div> 
-                <div class="mb-3">
-                    <label>Parent / Guardian Contact No.</label>
-                    <input type="text" name="parent_contact" class="form-control" placeholder="09xxxxxxxxx">
-                </div> 
-                <button class="btn btn-primary w-100"><i class="bi bi-save"></i> Register Student</button> 
-            </form> 
-        </div> 
-    </div> 
+<!-- FIXED FOR MULTIPLE SECTIONS - Panel Ready -->
+<div class="row">
+<div class="col-md-6 mb-3">
+<label>Grade Level</label>
+<select id="grade_level" class="form-control" required>
+<option value="Grade 1">Grade 1</option>
+<option value="Grade 2">Grade 2</option>
+<option value="Grade 3">Grade 3</option>
+<option value="Grade 4">Grade 4</option>
+<option value="Grade 5">Grade 5</option>
+<option value="Grade 6" selected>Grade 6</option>
+</select>
+</div>
+<div class="col-md-6 mb-3">
+<label>Section</label>
+<select id="section_only" class="form-control" required>
+<option value="A">Section A</option>
+<option value="B">Section B</option>
+<option value="C">Section C</option>
+<option value="Mabini">Mabini</option>
+<option value="Bonifacio">Bonifacio</option>
+<option value="Rizal">Rizal</option>
+<option value="Luna">Luna</option>
+</select>
+</div>
+</div>
 
-    <div class="col-md-6"> 
-        <div class="card shadow-sm p-4 text-center"> 
-            <h5><i class="bi bi-qr-code"></i> Generated QR Code</h5> 
-            {% if qr_path %}
-                <img src="{{ url_for('static', filename=qr_path) }}" class="img-fluid my-3" style="max-width: 250px; border: 1px solid #ddd; padding: 5px;">
-                <p class="fw-bold">{{ student_name }}</p>
-                <a href="{{ url_for('static', filename=qr_path) }}" download="{{ student_id }}.png" class="btn btn-success btn-sm">
-                    <i class="bi bi-download"></i> Download QR
-                </a>
-            {% else %}
-                <p class="text-muted mt-3">QR will appear here after registration</p> 
-                <small>*Each student has a unique QR Code.</small>
-            {% endif %}
-        </div> 
-    </div> 
-</div> 
+<!-- Hidden field na magiging Grade 6 - Section A -->
+<input type="hidden" name="grade_section" id="grade_section">
+
+<div class="mb-3">
+<label>Parent / Guardian Name</label>
+<input type="text" name="parent_name" class="form-control">
+</div>
+<div class="mb-3">
+<label>Parent / Guardian Contact No.</label>
+<input type="text" name="parent_contact" class="form-control" placeholder="09xxxxxxxxx">
+</div>
+<button class="btn btn-primary w-100"><i class="bi bi-save"></i> Register Student</button>
+</form>
+</div>
+</div>
+<div class="col-md-6">
+<div class="card shadow-sm p-4 text-center">
+<h5><i class="bi bi-qr-code"></i> Generated QR Code</h5>
+{% if qr_path %}
+<img src="{{ url_for('static', filename=qr_path) }}" class="img-fluid my-3" style="max-width: 250px; border: 1px solid #ddd; padding: 5px;">
+<p class="fw-bold">{{ student_name }}</p>
+<a href="{{ url_for('static', filename=qr_path) }}" download="{{ student_id }}.png" class="btn btn-success btn-sm">
+<i class="bi bi-download"></i> Download QR
+</a>
+{% else %}
+<p class="text-muted mt-3">QR will appear here after registration</p>
+<small>*Each student has a unique QR Code.</small>
+{% endif %}
+</div>
+</div>
+</div>
+
+<script>
+// Auto combine Grade + Section para sa database
+document.getElementById('registerForm').addEventListener('submit', function() {
+    var grade = document.getElementById('grade_level').value;
+    var section = document.getElementById('section_only').value;
+    document.getElementById('grade_section').value = grade + " - Section " + section;
+});
+</script>
+
 {% endblock %}
