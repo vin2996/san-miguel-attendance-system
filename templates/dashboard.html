@@ -13,7 +13,7 @@ document.getElementById('live-date').innerText = phDate;
 }
 updatePHDate();
 </script>
-<!-- STATS CARDS -->
+<!-- STATS CARDS - NANDUN PA RIN LAHAT -->
 <div class="row mb-4">
 <div class="col-md-3 mb-3">
 <div class="card text-bg-primary shadow-sm">
@@ -38,7 +38,7 @@ updatePHDate();
 <div class="card-body">
 <h6 class="card-title"><i class="bi bi-clock-fill"></i> Late</h6>
 <h2 class="fw-bold">{{ late }}</h2>
-<small>After 7:30 AM</small>
+<small>After 7:30 AM / 1:00 PM</small>
 </div>
 </div>
 </div>
@@ -53,16 +53,14 @@ updatePHDate();
 </div>
 </div>
 <div class="row">
-<!-- RECENT ACTIVITY -->
+<!-- RECENT ACTIVITY - MAY PRESENT/LATE PER SCAN NA -->
 <div class="col-md-8">
 <div class="card shadow-sm">
 <div class="card-header bg-light">
 <h5 class="mb-0"><i class="bi bi-activity"></i> Recent Activity Today</h5>
 <div class="mt-1">
-<span class="badge bg-success">AM In</span>
-<span class="badge bg-warning text-dark">Lunch Out</span>
-<span class="badge bg-primary">PM In</span>
-<span class="badge bg-danger">PM Out</span>
+<span class="badge bg-success">AM>7:30 Late</span>
+<span class="badge bg-primary">PM>1:00 Late</span>
 </div>
 </div>
 <div class="card-body">
@@ -72,9 +70,9 @@ updatePHDate();
 <thead>
 <tr>
 <th>Name</th>
-<th><span class="badge bg-success">AM</span> In</th>
+<th><span class="badge bg-success">AM</span> In<br><small>7:30 cutoff</small></th>
 <th><span class="badge bg-warning text-dark">Lunch</span> Out</th>
-<th><span class="badge bg-primary">PM</span> In</th>
+<th><span class="badge bg-primary">PM</span> In<br><small>1:00 cutoff</small></th>
 <th><span class="badge bg-danger">PM</span> Out</th>
 <th>Status</th>
 <th>Scanned By</th>
@@ -84,9 +82,29 @@ updatePHDate();
 {% for r in recent %}
 <tr>
 <td>{{ r['name'] }}</td>
-<td>{{ format_time(r['time_in_am']) }}</td>
+<td>
+{{ format_time(r['time_in_am']) }}
+{% if r['time_in_am'] %}
+<br>
+{% if r['time_in_am'] > late_am %}
+<span class="badge bg-warning text-dark">Late</span>
+{% else %}
+<span class="badge bg-success">Present</span>
+{% endif %}
+{% endif %}
+</td>
 <td>{{ format_time(r['time_out_am']) }}</td>
-<td>{{ format_time(r['time_in_pm']) }}</td>
+<td>
+{{ format_time(r['time_in_pm']) }}
+{% if r['time_in_pm'] %}
+<br>
+{% if r['time_in_pm'] > late_pm %}
+<span class="badge bg-warning text-dark">Late</span>
+{% else %}
+<span class="badge bg-success">Present</span>
+{% endif %}
+{% endif %}
+</td>
 <td>{{ format_time(r['time_out_pm']) }}</td>
 <td>
 {% if r['status'] == 'Present' %}
