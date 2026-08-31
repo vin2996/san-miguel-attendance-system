@@ -1,17 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - {{ school }}{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
     <h5 class="text-muted" id="live-date">{{ today.strftime('%B %d, %Y') }}</h5>
 </div>
+
 <script>
-    function updatePHDate() {
-        const options = { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' };
-        const phDate = new Date().toLocaleDateString('en-US', options);
-        document.getElementById('live-date').innerText = phDate;
-    }
-    updatePHDate();
+function updatePHDate() {
+    const options = { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' };
+    const phDate = new Date().toLocaleDateString('en-US', options);
+    document.getElementById('live-date').innerText = phDate;
+}
+updatePHDate();
 </script>
 
 <!-- STATS CARDS - NANDUN PA RIN LAHAT -->
@@ -88,11 +90,11 @@
                                     {{ format_time(r['time_in_am']) }}
                                     {% if r['time_in_am'] %}
                                     <br>
-                                    {% if r['time_in_am'] > late_am %}
-                                    <span class="badge bg-warning text-dark">Late</span>
-                                    {% else %}
-                                    <span class="badge bg-success">Present</span>
-                                    {% endif %}
+                                        {% if r['time_in_am'] > late_am %}
+                                        <span class="badge bg-warning text-dark">Late</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Present</span>
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                                 <td>{{ format_time(r['time_out_am']) }}</td>
@@ -100,11 +102,11 @@
                                     {{ format_time(r['time_in_pm']) }}
                                     {% if r['time_in_pm'] %}
                                     <br>
-                                    {% if r['time_in_pm'] > late_pm %}
-                                    <span class="badge bg-warning text-dark">Late</span>
-                                    {% else %}
-                                    <span class="badge bg-success">Present</span>
-                                    {% endif %}
+                                        {% if r['time_in_pm'] > late_pm %}
+                                        <span class="badge bg-warning text-dark">Late</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Present</span>
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                                 <td>{{ format_time(r['time_out_pm']) }}</td>
@@ -130,6 +132,7 @@
             </div>
         </div>
     </div>
+
     <!-- QUICK LINKS -->
     <div class="col-md-4">
         <div class="card shadow-sm">
