@@ -59,30 +59,26 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
+# ===== FIXED INIT_DB - WALANG ALTER - DIRECT COMPLETE TABLE =====
 def init_db():
     with app.app_context():
         db = get_db()
         cur = db.cursor()
         cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
         cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS attendance (id SERIAL PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT \'Present\', scanned_by TEXT)')
+        cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
+            id SERIAL PRIMARY KEY,
+            student_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time_in TEXT,
+            time_out TEXT,
+            status TEXT DEFAULT 'Present',
+            scanned_by TEXT,
+            time_in_am TEXT,
+            time_out_am TEXT,
+            time_in_pm TEXT,
+            time_out_pm TEXT)''')
         cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
-        try:
-            cur.execute("ALTER TABLE attendance ADD COLUMN time_in_am TEXT")
-        except:
-            db.rollback()
-        try:
-            cur.execute("ALTER TABLE attendance ADD COLUMN time_out_am TEXT")
-        except:
-            db.rollback()
-        try:
-            cur.execute("ALTER TABLE attendance ADD COLUMN time_in_pm TEXT")
-        except:
-            db.rollback()
-        try:
-            cur.execute("ALTER TABLE attendance ADD COLUMN time_out_pm TEXT")
-        except:
-            db.rollback()
         cur.execute("SELECT * FROM users WHERE username='admin'")
         if not cur.fetchone():
             cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
