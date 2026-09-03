@@ -4,13 +4,13 @@ import os
 import sqlite3
 from datetime import datetime, date
 import sms_service
+
 # FIXED PART - Safe timezone
 try:
     from zoneinfo import ZoneInfo
     try:
         PH_TZ = ZoneInfo('Asia/Manila')
     except Exception:
-        # fallback pag wala pang tzdata sa Render
         PH_TZ = None
 except ImportError:
     PH_TZ = None
@@ -61,14 +61,22 @@ def init_db():
         db.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
         db.execute('CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT "Present", scanned_by TEXT, FOREIGN KEY (student_id) REFERENCES students(student_id))')
         db.execute('CREATE TABLE IF NOT EXISTS teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
-        try: db.execute("ALTER TABLE attendance ADD COLUMN time_in_am TEXT")
-        except: pass
-        try: db.execute("ALTER TABLE attendance ADD COLUMN time_out_am TEXT")
-        except: pass
-        try: db.execute("ALTER TABLE attendance ADD COLUMN time_in_pm TEXT")
-        except: pass
-        try: db.execute("ALTER TABLE attendance ADD COLUMN time_out_pm TEXT")
-        except: pass
+        try:
+            db.execute("ALTER TABLE attendance ADD COLUMN time_in_am TEXT")
+        except:
+            pass
+        try:
+            db.execute("ALTER TABLE attendance ADD COLUMN time_out_am TEXT")
+        except:
+            pass
+        try:
+            db.execute("ALTER TABLE attendance ADD COLUMN time_in_pm TEXT")
+        except:
+            pass
+        try:
+            db.execute("ALTER TABLE attendance ADD COLUMN time_out_pm TEXT")
+        except:
+            pass
         cur = db.execute("SELECT * FROM users WHERE username='admin'")
         if not cur.fetchone():
             db.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
@@ -106,11 +114,28 @@ def approvals():
     db = get_db(); pending_users = db.execute("SELECT * FROM users WHERE status='pending'").fetchall()
     return render_template('approvals.html', users=pending_users, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
+# --- UPDATED: AUTO STORE TO TEACHERS TABLE WHEN APPROVED ---
 @app.route('/approve_user/<int:id>')
 def approve_user(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
         flash('Admin access only', 'danger'); return redirect(url_for('login'))
-    db = get_db(); db.execute("UPDATE users SET status='approved' WHERE id=?", [id]); db.commit(); flash('User Approved Successfully', 'success'); return redirect(url_for('approvals'))
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id=?", [id]).fetchone()
+    if user:
+        db.execute("UPDATE users SET status='approved' WHERE id=?", [id])
+        # PAG TEACHER YUNG INAPPROVE, AUTO LAGAY SA TEACHERS TABLE
+        if user['role'] == 'Teacher':
+            try:
+                # Check kung wala pa sa teachers table
+                exists = db.execute("SELECT * FROM teachers WHERE teacher_id=?", (user['username'],)).fetchone()
+                if not exists:
+                    db.execute("INSERT INTO teachers(teacher_id, name, subject, contact) VALUES(?,?,?,?)",
+                               (user['username'], user['username'], 'Not Set', 'Not Set'))
+            except:
+                pass
+        db.commit()
+        flash('User Approved Successfully & Added to Teachers List', 'success')
+    return redirect(url_for('approvals'))
 
 @app.route('/dashboard')
 def dashboard():
@@ -138,18 +163,8 @@ def teachers():
     db = get_db(); teachers = db.execute("SELECT * FROM teachers ORDER BY name").fetchall()
     return render_template('teachers.html', teachers=teachers, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
-@app.route('/register_teacher', methods=['GET', 'POST'])
-def register_teacher():
-    if not session.get('logged_in') or session['role']!= 'Admin':
-        return redirect(url_for('login'))
-    if request.method == 'POST':
-        teacher_id = request.form['teacher_id']; name = request.form['name']; subject = request.form['subject']; contact = request.form['contact']
-        db = get_db()
-        try:
-            db.execute("INSERT INTO teachers(teacher_id, name, subject, contact) VALUES(?,?,?,?)", (teacher_id, name, subject, contact)); db.commit(); flash('Teacher Registered Successfully', 'success'); return redirect(url_for('teachers'))
-        except sqlite3.IntegrityError:
-            flash('Error: Teacher ID already exists', 'danger')
-    return render_template('register_teacher.html', school=SCHOOL_NAME, grade=GRADE_LEVEL)
+# --- TINANGGAL KO NA YUNG REGISTER_TEACHER ROUTE PER PANEL REQUEST ---
+# Dati may @app.route('/register_teacher') dito - tinanggal na para register_user lang gamitin
 
 @app.route('/edit_teacher/<int:id>', methods=['GET', 'POST'])
 def edit_teacher(id):
@@ -215,27 +230,35 @@ def scan():
         db.execute("INSERT INTO attendance(student_id, date, time_in, time_in_am, status, scanned_by) VALUES(?,?,?,?,?,?)", (student_id, today_str, cur_time_24, cur_time_24, status, session['username']))
         db.commit()
         message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
-        try: sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except: pass
+        try:
+            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+        except:
+            pass
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_in_am'] and not record['time_out_am']:
         db.execute("UPDATE attendance SET time_out_am=?, time_out=? WHERE id=?", (cur_time_24, cur_time_24, record['id'])); db.commit()
         message = f"{student['name']} LUNCH OUT: {cur_time_12}"
-        try: sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except: pass
+        try:
+            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+        except:
+            pass
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_out_am'] and not record['time_in_pm']:
         db.execute("UPDATE attendance SET time_in_pm=? WHERE id=?", (cur_time_24, record['id'])); db.commit()
         late_note = " - Late" if cur_time_24 > LATE_CUTOFF_PM else " - Present"
         message = f"{student['name']} AFTERNOON IN: {cur_time_12}{late_note}"
-        try: sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except: pass
+        try:
+            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+        except:
+            pass
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_in_pm'] and not record['time_out_pm']:
         db.execute("UPDATE attendance SET time_out_pm=? WHERE id=?", (cur_time_24, record['id'])); db.commit()
         message = f"{student['name']} AFTERNOON OUT: {cur_time_12}"
-        try: sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except: pass
+        try:
+            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+        except:
+            pass
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     return jsonify({'status': 'error', 'message': f'{student["name"]} already completed attendance today (4 scans done)'})
 
