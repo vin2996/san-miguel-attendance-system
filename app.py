@@ -129,8 +129,7 @@ def approve_user(id):
                 # Check kung wala pa sa teachers table
                 exists = db.execute("SELECT * FROM teachers WHERE teacher_id=?", (user['username'],)).fetchone()
                 if not exists:
-                    db.execute("INSERT INTO teachers(teacher_id, name, subject, contact) VALUES(?,?,?,?)",
-                               (user['username'], user['username'], 'Not Set', 'Not Set'))
+                    db.execute("INSERT INTO teachers(teacher_id, name, subject, contact) VALUES(?,?,?,?)", (user['username'], user['username'], 'Not Set', 'Not Set'))
             except:
                 pass
         db.commit()
@@ -151,8 +150,9 @@ def dashboard():
 
 @app.route('/students')
 def students():
-    if not session.get('logged_in') or session['role']!= 'Admin':
-        return redirect(url_for('login'))
+    if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
+        flash('Unauthorized! Admin or Teacher access only.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db(); students = db.execute("SELECT * FROM students").fetchall()
     return render_template('students.html', students=students, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
@@ -194,7 +194,8 @@ def delete_teacher(id):
 @app.route('/register_student', methods=['GET', 'POST'])
 def register_student():
     if not session.get('logged_in') or session['role']!= 'Admin':
-        return redirect(url_for('login'))
+        flash('Admin access only - Teachers cannot add students', 'danger')
+        return redirect(url_for('students'))
     qr_path = None; student_name = None; student_id = None
     if request.method == 'POST':
         student_id = request.form['student_id']; name = request.form['name']; section = request.form['grade_section']; pname = request.form['parent_name']; pcontact = request.form['parent_contact']
@@ -293,8 +294,8 @@ def reset_attendance():
 @app.route('/delete_student/<student_id>', methods=['POST'])
 def delete_student(student_id):
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized! Admin access only.', 'danger')
-        return redirect(url_for('dashboard'))
+        flash('Unauthorized! Admin access only - Teachers cannot delete students', 'danger')
+        return redirect(url_for('students'))
     db = get_db()
     try:
         db.execute("DELETE FROM attendance WHERE student_id =?", (student_id,))
@@ -316,8 +317,9 @@ def logout():
 
 @app.route('/edit_student/<student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
-    if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized! Admin access only.', 'danger'); return redirect(url_for('dashboard'))
+    if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
+        flash('Unauthorized! Admin or Teacher access only.', 'danger')
+        return redirect(url_for('dashboard'))
     db = get_db()
     student = db.execute("SELECT * FROM students WHERE student_id =?", (student_id,)).fetchone()
     if request.method == 'POST':
