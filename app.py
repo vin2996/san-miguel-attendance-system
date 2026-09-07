@@ -3,18 +3,18 @@ import qrcode
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import sms_service
 
-# FIXED PART - Safe timezone
+
 try:
     from zoneinfo import ZoneInfo
     try:
         PH_TZ = ZoneInfo('Asia/Manila')
     except Exception:
-        PH_TZ = None
+        PH_TZ = timezone(timedelta(hours=8))
 except ImportError:
-    PH_TZ = None
+    PH_TZ = timezone(timedelta(hours=8))
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
@@ -24,14 +24,10 @@ SCHOOL_NAME = "San Miguel Elementary School"
 GRADE_LEVEL = "Grade 6"
 
 def get_ph_date():
-    if PH_TZ:
-        return datetime.now(PH_TZ).date()
-    return datetime.now().date()
+    return datetime.now(PH_TZ).date()
 
 def get_ph_datetime():
-    if PH_TZ:
-        return datetime.now(PH_TZ)
-    return datetime.now()
+    return datetime.now(PH_TZ)
 
 def format_time_12hr(time_24):
     if not time_24:
@@ -58,7 +54,6 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-# ===== FIXED INIT_DB - WALANG ALTER - DIRECT COMPLETE TABLE =====
 def init_db():
     with app.app_context():
         db = get_db()
@@ -66,7 +61,17 @@ def init_db():
         cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
         cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
         cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
-            id SERIAL PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT 'Present', scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)''')
+                id SERIAL PRIMARY KEY,
+                student_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time_in TEXT,
+                time_out TEXT,
+                status TEXT DEFAULT 'Present',
+                scanned_by TEXT,
+                time_in_am TEXT,
+                time_out_am TEXT,
+                time_in_pm TEXT,
+                time_out_pm TEXT)''')
         cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
         cur.execute("SELECT * FROM users WHERE username='admin'")
         if not cur.fetchone():
@@ -100,23 +105,19 @@ def login():
             flash('Invalid Username or Password', 'danger')
     return render_template('login.html', school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
-# ===== UPDATED REGISTER - MAY SUBJECT / GRADE HANDLED NA =====
 @app.route('/register_user', methods=['GET', 'POST'])
 def register_user():
     if request.method == 'POST':
         username = request.form['username'].strip()
         password = request.form['password']
         role = request.form['role']
-        # UPDATED: Kukunin na yung name, subject, contact sa register form
         full_name = request.form.get('full_name', username).strip()
         subject = request.form.get('subject', 'Not Set').strip()
         contact = request.form.get('contact', 'Not Set').strip()
-
         db = get_db()
         cur = db.cursor()
         try:
             cur.execute("INSERT INTO users(username, password, role, status) VALUES(%s,%s,%s, 'pending')", (username, password, role))
-            # UPDATED: Pag Teacher ang nag register - diretso lagay na sa teachers table yung subject/contact nya
             if role == 'Teacher':
                 cur.execute("SELECT * FROM teachers WHERE teacher_id=%s", (username,))
                 if not cur.fetchone():
@@ -155,7 +156,6 @@ def approve_user(id):
             try:
                 cur.execute("SELECT * FROM teachers WHERE teacher_id=%s", (user['username'],))
                 exists = cur.fetchone()
-                # UPDATED: Kung wala pa - Not Set lang - pero kung meron na galing sa register - wag na palitan
                 if not exists:
                     cur.execute("INSERT INTO teachers(teacher_id, name, subject, contact) VALUES(%s,%s,%s,%s)", (user['username'], user['username'], 'Not Set', 'Not Set'))
             except:
