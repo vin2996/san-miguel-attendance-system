@@ -6,7 +6,7 @@
 <div class="mb-3">
 <label class="form-label">Student ID</label>
 <input type="text" class="form-control" value="{{ student[1] }}" disabled>
-<small class="text-muted">Hindi pwedeng i-edit ang Student ID</small>
+<small class="text-muted">Student ID connot be edited</small>
 </div>
 <div class="mb-3">
 <label class="form-label">Name</label>
@@ -69,7 +69,7 @@ function detectGrade() {
 }
 
 function detectSection() {
-    // hanapin kung may A, B, C, Mabini etc.
+   
     var sections = ["A", "B", "C", "Mabini", "Bonifacio", "Rizal", "Luna"];
     for (var s of sections) {
         if (currentVal.includes(s)) return s;
