@@ -45,7 +45,7 @@
 <a href="{{ url_for('edit_student', student_id=s.student_id) }}" class="btn btn-sm btn-warning">
 <i class="bi bi-pencil"></i> Edit
 </a>
-<form action="{{ url_for('delete_student', student_id=s.student_id) }}" method="POST" onsubmit="return confirm('Sigurado ka ba na ide-delete si {{ s.name }}? Hindi na ito maibabalik.');">
+<form action="{{ url_for('delete_student', student_id=s.student_id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete {{ s.name }}? This can no longer be undone.');">
 <button type="submit" class="btn btn-sm btn-danger">
 <i class="bi bi-trash"></i> Delete
 </button>
