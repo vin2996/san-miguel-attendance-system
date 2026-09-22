@@ -1,0 +1,13 @@
+instance/
+*.db
+*.sqlite3
+*.sqlite
+
+# Secrets
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Render / Logs
+logs/

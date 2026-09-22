@@ -3,9 +3,14 @@ import qrcode
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import sqlite3
 from datetime import datetime, date, timezone, timedelta
 import requests
-
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except:
+    pass
 try:
     from zoneinfo import ZoneInfo
     try:
@@ -14,18 +19,15 @@ try:
         PH_TZ = timezone(timedelta(hours=8))
 except ImportError:
     PH_TZ = timezone(timedelta(hours=8))
-
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
-
 LATE_CUTOFF = "07:30:00"
 LATE_CUTOFF_PM = "13:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
 GRADE_LEVEL = "Grade 6"
-
 IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "YOUR_IPROG_API_TOKEN_HERE")
-IPROG_API_URL = "https://www.iprogsms.com/api/v1/sms_messages"
-
+IPROG_API_URL = "https://sms.iprogtech.com/api/v1/sms_messages"
+IS_SQLITE = False
 def send_iprog_sms(phone_number, message):
     try:
         if not phone_number:
@@ -35,24 +37,17 @@ def send_iprog_sms(phone_number, message):
             p = p[1:]
         if p.startswith("0"):
             p = "63" + p[1:]
-        payload = {
-            "api_token": IPROG_API_TOKEN,
-            "phone_number": p,
-            "message": message
-        }
+        payload = {"api_token": IPROG_API_TOKEN, "phone_number": p, "message": message, "sms_provider": 2}
         r = requests.post(IPROG_API_URL, json=payload, timeout=15)
         print(f"[IPROG] TO:{p} STATUS:{r.status_code} RESP:{r.text}")
         return r.status_code == 200
     except Exception as e:
         print(f"[IPROG FAILED] {e}")
         return False
-
 def get_ph_date():
     return datetime.now(PH_TZ).date()
-
 def get_ph_datetime():
     return datetime.now(PH_TZ)
-
 def format_time_12hr(time_24):
     if not time_24:
         return ""
@@ -60,53 +55,110 @@ def format_time_12hr(time_24):
         return datetime.strptime(time_24, "%H:%M:%S").strftime("%I:%M:%S %p")
     except:
         return time_24
-
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+class SQLiteCursorWrapper:
+    def __init__(self, cursor):
+        self._cursor = cursor
+    def execute(self, sql, params=None):
+        sql = sql.replace("%s", "?")
+        if params is None:
+            return self._cursor.execute(sql)
+        return self._cursor.execute(sql, params)
+    def fetchone(self):
+        return self._cursor.fetchone()
+    def fetchall(self):
+        return self._cursor.fetchall()
+class SQLiteConnWrapper:
+    def __init__(self, conn):
+        self._conn = conn
+    def cursor(self):
+        return SQLiteCursorWrapper(self._conn.cursor())
+    def commit(self):
+        return self._conn.commit()
+    def rollback(self):
+        return self._conn.rollback()
+    def close(self):
+        return self._conn.close()
+def get_sqlite_db():
+    conn = sqlite3.connect('qr_attendance.db')
+    conn.row_factory = dict_factory
+    return SQLiteConnWrapper(conn)
 def get_db():
+    global IS_SQLITE
     db = getattr(g, '_database', None)
-    if db is None:
-        url = os.environ.get('DATABASE_URL')
-        if not url:
-            raise Exception("DATABASE_URL not set")
-        if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql://", 1)
-        db = g._database = psycopg2.connect(url, sslmode='require', cursor_factory=RealDictCursor)
+    if db is not None:
+        try:
+            if not IS_SQLITE and db.closed == 0:
+                return db
+            if IS_SQLITE:
+                return db
+        except:
+            try:
+                return db
+            except:
+                pass
+    url = os.environ.get('DATABASE_URL')
+    if url:
+        try:
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql://", 1)
+            pg_db = psycopg2.connect(url, sslmode='require', cursor_factory=RealDictCursor, connect_timeout=10, keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
+            IS_SQLITE = False
+            g._database = pg_db
+            return pg_db
+        except Exception as e:
+            print(f"Postgres failed, fallback to SQLite: {e}")
+    IS_SQLITE = True
+    db = g._database = get_sqlite_db()
     return db
-
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
-        db.close()
-
+        try:
+            db.close()
+        except:
+            pass
 def init_db():
     with app.app_context():
         db = get_db()
         cur = db.cursor()
-        cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
-        cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
-        cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
-            id SERIAL PRIMARY KEY,
-            student_id TEXT NOT NULL,
-            date TEXT NOT NULL,
-            time_in TEXT,
-            time_out TEXT,
-            status TEXT DEFAULT 'Present',
-            scanned_by TEXT,
-            time_in_am TEXT,
-            time_out_am TEXT,
-            time_in_pm TEXT,
-            time_out_pm TEXT)''')
-        cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
-        cur.execute("SELECT * FROM users WHERE username='admin'")
-        if not cur.fetchone():
-            cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
+        if IS_SQLITE:
+            cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT "Teacher", status TEXT DEFAULT "pending")')
+            cur.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
+            cur.execute('CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT "Present", scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)')
+            cur.execute('CREATE TABLE IF NOT EXISTS teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
+            cur.execute("SELECT * FROM users WHERE username='admin'")
+            if not cur.fetchone():
+                cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
+        else:
+            cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
+            cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
+            cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
+                id SERIAL PRIMARY KEY,
+                student_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                time_in TEXT,
+                time_out TEXT,
+                status TEXT DEFAULT 'Present',
+                scanned_by TEXT,
+                time_in_am TEXT,
+                time_out_am TEXT,
+                time_in_pm TEXT,
+                time_out_pm TEXT)''')
+            cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
+            cur.execute("SELECT * FROM users WHERE username='admin'")
+            if not cur.fetchone():
+                cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
         db.commit()
-
 try:
     init_db()
 except Exception as e:
     print(f"DB Init: {e}")
-
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -128,7 +180,6 @@ def login():
         else:
             flash('Invalid Username or Password', 'danger')
     return render_template('login.html', school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/register_user', methods=['GET', 'POST'])
 def register_user():
     if request.method == 'POST':
@@ -153,7 +204,6 @@ def register_user():
             db.rollback()
             flash(f'Username already exists: {e}', 'danger')
     return render_template('register_user.html', school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/approvals')
 def approvals():
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -164,7 +214,6 @@ def approvals():
     cur.execute("SELECT * FROM users WHERE status='pending'")
     pending_users = cur.fetchall()
     return render_template('approvals.html', users=pending_users, school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/approve_user/<int:id>')
 def approve_user(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -187,7 +236,6 @@ def approve_user(id):
         db.commit()
         flash('User Approved Successfully & Added to Teachers List', 'success')
     return redirect(url_for('approvals'))
-
 @app.route('/dashboard')
 def dashboard():
     if not session.get('logged_in'):
@@ -205,7 +253,6 @@ def dashboard():
     cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status, a.scanned_by FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
     recent = cur.fetchall()
     return render_template('dashboard.html', total=total, present=present_today, late=late_today, absent=absent_today, recent=recent, school=SCHOOL_NAME, grade=GRADE_LEVEL, today=get_ph_date(), format_time=format_time_12hr, late_am=LATE_CUTOFF, late_pm=LATE_CUTOFF_PM)
-
 @app.route('/students')
 def students():
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
@@ -216,7 +263,6 @@ def students():
     cur.execute("SELECT * FROM students")
     students = cur.fetchall()
     return render_template('students.html', students=students, school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/teachers')
 def teachers():
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -226,7 +272,6 @@ def teachers():
     cur.execute("SELECT * FROM teachers ORDER BY name")
     teachers = cur.fetchall()
     return render_template('teachers.html', teachers=teachers, school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/edit_teacher/<int:id>', methods=['GET', 'POST'])
 def edit_teacher(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -250,7 +295,6 @@ def edit_teacher(id):
             db.rollback()
             flash('Error: Teacher ID already exists', 'danger')
     return render_template('edit_teacher.html', teacher=teacher, school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/delete_teacher/<int:id>', methods=['POST'])
 def delete_teacher(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -266,7 +310,6 @@ def delete_teacher(id):
         db.rollback()
         flash(f'Error deleting teacher: {e}', 'danger')
     return redirect(url_for('teachers'))
-
 @app.route('/register_student', methods=['GET', 'POST'])
 def register_student():
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -298,13 +341,11 @@ def register_student():
             db.rollback()
             flash('Error: Student ID already exists', 'danger')
     return render_template('register_student.html', school=SCHOOL_NAME, grade=GRADE_LEVEL, qr_path=qr_path, student_name=student_name, student_id=student_id)
-
 @app.route('/scanner')
 def scanner():
     if not session.get('logged_in'):
         return redirect(url_for('login'))
     return render_template('scanner.html', school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 @app.route('/scan', methods=['POST'])
 def scan():
     data = request.get_json()
@@ -348,7 +389,6 @@ def scan():
         send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     return jsonify({'status': 'error', 'message': f'{student["name"]} already completed attendance today (4 scans done)'})
-
 @app.route('/attendance')
 def attendance():
     if not session.get('logged_in'):
@@ -361,7 +401,6 @@ def attendance():
     cur.execute("SELECT a.*, s.name FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC", [filter_date])
     records = cur.fetchall()
     return render_template('attendance.html', records=records, all_dates=all_dates, filter_date=filter_date, school=SCHOOL_NAME, grade=GRADE_LEVEL, format_time=format_time_12hr, late_am=LATE_CUTOFF, late_pm=LATE_CUTOFF_PM)
-
 @app.route('/reports')
 def reports():
     if not session.get('logged_in'):
@@ -377,7 +416,6 @@ def reports():
     late_today = cur.fetchone()['c']
     absent_today = 0 if present_today == 0 else total - present_today
     return render_template('reports.html', total=total, present=present_today, late=late_today, absent=absent_today, school=SCHOOL_NAME, grade=GRADE_LEVEL, today=get_ph_date())
-
 @app.route('/reset_attendance', methods=['POST'])
 def reset_attendance():
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -389,7 +427,6 @@ def reset_attendance():
     db.commit()
     flash('All Attendance Records Have Been Reset Successfully', 'success')
     return redirect(url_for('attendance'))
-
 @app.route('/delete_student/<student_id>', methods=['POST'])
 def delete_student(student_id):
     if not session.get('logged_in') or session['role']!= 'Admin':
@@ -409,12 +446,10 @@ def delete_student(student_id):
         db.rollback()
         flash(f'Error deleting student: {e}', 'danger')
     return redirect(url_for('students'))
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
 @app.route('/edit_student/<student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
@@ -434,6 +469,5 @@ def edit_student(student_id):
         flash(f'Student {name} updated successfully.', 'success')
         return redirect(url_for('students'))
     return render_template('edit_student.html', student=student, school=SCHOOL_NAME, grade=GRADE_LEVEL)
-
 if __name__ == '__main__':
     app.run(debug=True)
