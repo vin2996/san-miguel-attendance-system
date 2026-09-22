@@ -415,7 +415,8 @@ def scan():
         if record['time_in_am'] and not record['time_out_am']:
             cur.execute("UPDATE attendance SET time_out_am=%s, time_out=%s WHERE id=%s", (cur_time_24, cur_time_24, record['id']))
             db.commit()
-            message = f"{student['name']} LUNCH OUT: {cur_time_12}"send_iprog_sms(student['parent_contact'],send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+            message = f"{student['name']} LUNCH OUT: {cur_time_12}"
+            send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
             return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
         if record['time_in_pm'] and not record['time_out_pm']:
             cur.execute("UPDATE attendance SET time_out_pm=%s WHERE id=%s", (cur_time_24, record['id']))
