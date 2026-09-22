@@ -349,8 +349,10 @@ def scanner():
 @app.route('/scan', methods=['POST'])
 def scan():
     data = request.get_json()
-    student_id = data.get('student_id') or data.get('qr_data') or data.get('id')
-    scan_type = data.get('scan_type') or data.get('mode') or data.get('type')
+    student_id = data.get('student_id')
+    if not student_id:
+        student_id = data.get('qr_data')
+    scan_type = data.get('scan_type', 'in')
     if scan_type:
         scan_type = scan_type.lower()
     now = get_ph_datetime()
@@ -365,31 +367,28 @@ def scan():
         return jsonify({'status': 'error', 'message': 'Student not found'})
     cur.execute("SELECT * FROM attendance WHERE student_id=%s AND date=%s", (student_id, today_str))
     record = cur.fetchone()
-    def get_last_time_diff(rec):
-        try:
-            times = []
-            for k in ['time_out_pm', 'time_in_pm', 'time_out_am', 'time_in_am']:
-                if rec and rec.get(k):
-                    times.append(rec.get(k))
-            if not times:
-                return 9999
-            last_t_str = times[0]
-            last_dt = datetime.strptime(f"{today_str} {last_t_str}", "%Y-%m-%d %H:%M:%S")
-            last_dt = last_dt.replace(tzinfo=PH_TZ)
-            diff = (now - last_dt).total_seconds()
-            return diff
-        except:
-            return 9999
     if record:
-        diff_sec = get_last_time_diff(record)
-        if diff_sec < 60:
-            return jsonify({'status': 'error', 'message': f'{student["name"]} scanned {int(diff_sec)}s ago. Wait 60s to avoid double scan.'})
-    if scan_type in ['in', 'time_in', 'am_in', 'pm_in', 'time in scan', 'time_in_scan']:
+        last_time_str = None
+        if record.get('time_out_pm'):
+            last_time_str = record.get('time_out_pm')
+        elif record.get('time_in_pm'):
+            last_time_str = record.get('time_in_pm')
+        elif record.get('time_out_am'):
+            last_time_str = record.get('time_out_am')
+        elif record.get('time_in_am'):
+            last_time_str = record.get('time_in_am')
+        if last_time_str:
+            try:
+                last_dt = datetime.strptime(f"{today_str} {last_time_str}", "%Y-%m-%d %H:%M:%S")
+                last_dt = last_dt.replace(tzinfo=PH_TZ)
+                diff = (now - last_dt).total_seconds()
+                if diff < 60:
+                    return jsonify({'status': 'error', 'message': f'{student["name"]} already scanned {int(diff)}s ago. Wait 60s.'})
+            except:
+                pass
+    if scan_type == 'in':
         if not record:
-            if cur_time_24 > LATE_CUTOFF and cur_time_24 < "12:00:00":
-                status = 'Late'
-            else:
-                status = 'Present'
+            status = 'Late' if cur_time_24 > LATE_CUTOFF else 'Present'
             cur.execute("INSERT INTO attendance(student_id, date, time_in, time_in_am, status, scanned_by) VALUES(%s,%s,%s,%s,%s,%s)", (student_id, today_str, cur_time_24, cur_time_24, status, session.get('username','system')))
             db.commit()
             message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
@@ -397,7 +396,7 @@ def scan():
             return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
         if not record['time_in_am']:
             status = 'Late' if cur_time_24 > LATE_CUTOFF else 'Present'
-            cur.execute("UPDATE attendance SET time_in_am=%s, time_in=%s, status=%s, scanned_by=%s WHERE id=%s", (cur_time_24, cur_time_24, status, session.get('username','system'), record['id']))
+            cur.execute("UPDATE attendance SET time_in_am=%s, time_in=%s, status=%s WHERE id=%s", (cur_time_24, cur_time_24, status, record['id']))
             db.commit()
             message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
             send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
@@ -409,9 +408,12 @@ def scan():
             message = f"{student['name']} AFTERNOON IN: {cur_time_12}{late_note}"
             send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
             return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-        return jsonify({'status': 'error', 'message': f'{student["name"]} already completed IN scans today (AM IN and PM IN done)'})
-    if scan_type in ['out', 'time_out', 'am_out', 'pm_out', 'time out scan', 'time_out_scan', 'lunch_out']:
+        return jsonify({'status': 'error', 'message': f'{student["name"]} already completed IN today'})
+    if scan_type == 'out':
         if not record:
-            return jsonify({'status': 'error', 'message': f'{student["name"]} no AM IN yet. Use TIME IN SCAN first.'})
+            return jsonify({'status': 'error', 'message': f'{student["name"]} no AM IN yet. Use TIME IN first.'})
         if record['time_in_am'] and not record['time_out_am']:
-            cur
+            cur.execute("UPDATE attendance SET time_out_am=%s, time_out=%s WHERE id=%s", (cur_time_24, cur_time_24, record['id']))
+            db.commit()
+            message = f"{student['name']} LUNCH OUT: {cur_time_12}"
+            send_iprog_sms(student['parent_contact'],
