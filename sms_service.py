@@ -1,7 +1,7 @@
 import os
 import requests
 
-IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "YOUR_IPROG_API_TOKEN_HERE")
+IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "d150c18f4837899d5a813a230e21b73225720e95")
 IPROG_API_URL = "https://www.iprogsms.com/api/v1/sms_messages"
 
 try:
