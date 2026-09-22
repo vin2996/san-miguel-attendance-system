@@ -4,8 +4,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, date, timezone, timedelta
-import sms_service
-
+import requests
 
 try:
     from zoneinfo import ZoneInfo
@@ -18,10 +17,35 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
+
 LATE_CUTOFF = "07:30:00"
 LATE_CUTOFF_PM = "13:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
 GRADE_LEVEL = "Grade 6"
+
+IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "YOUR_IPROG_API_TOKEN_HERE")
+IPROG_API_URL = "https://www.iprogsms.com/api/v1/sms_messages"
+
+def send_iprog_sms(phone_number, message):
+    try:
+        if not phone_number:
+            return False
+        p = phone_number.strip()
+        if p.startswith("+"):
+            p = p[1:]
+        if p.startswith("0"):
+            p = "63" + p[1:]
+        payload = {
+            "api_token": IPROG_API_TOKEN,
+            "phone_number": p,
+            "message": message
+        }
+        r = requests.post(IPROG_API_URL, json=payload, timeout=15)
+        print(f"[IPROG] TO:{p} STATUS:{r.status_code} RESP:{r.text}")
+        return r.status_code == 200
+    except Exception as e:
+        print(f"[IPROG FAILED] {e}")
+        return False
 
 def get_ph_date():
     return datetime.now(PH_TZ).date()
@@ -61,17 +85,17 @@ def init_db():
         cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
         cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT)')
         cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
-                id SERIAL PRIMARY KEY,
-                student_id TEXT NOT NULL,
-                date TEXT NOT NULL,
-                time_in TEXT,
-                time_out TEXT,
-                status TEXT DEFAULT 'Present',
-                scanned_by TEXT,
-                time_in_am TEXT,
-                time_out_am TEXT,
-                time_in_pm TEXT,
-                time_out_pm TEXT)''')
+            id SERIAL PRIMARY KEY,
+            student_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            time_in TEXT,
+            time_out TEXT,
+            status TEXT DEFAULT 'Present',
+            scanned_by TEXT,
+            time_in_am TEXT,
+            time_out_am TEXT,
+            time_in_pm TEXT,
+            time_out_pm TEXT)''')
         cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
         cur.execute("SELECT * FROM users WHERE username='admin'")
         if not cur.fetchone():
@@ -302,38 +326,26 @@ def scan():
         cur.execute("INSERT INTO attendance(student_id, date, time_in, time_in_am, status, scanned_by) VALUES(%s,%s,%s,%s,%s,%s)", (student_id, today_str, cur_time_24, cur_time_24, status, session['username']))
         db.commit()
         message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
-        try:
-            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except:
-            pass
+        send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_in_am'] and not record['time_out_am']:
         cur.execute("UPDATE attendance SET time_out_am=%s, time_out=%s WHERE id=%s", (cur_time_24, cur_time_24, record['id']))
         db.commit()
         message = f"{student['name']} LUNCH OUT: {cur_time_12}"
-        try:
-            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except:
-            pass
+        send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_out_am'] and not record['time_in_pm']:
         cur.execute("UPDATE attendance SET time_in_pm=%s WHERE id=%s", (cur_time_24, record['id']))
         db.commit()
         late_note = " - Late" if cur_time_24 > LATE_CUTOFF_PM else " - Present"
         message = f"{student['name']} AFTERNOON IN: {cur_time_12}{late_note}"
-        try:
-            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except:
-            pass
+        send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     if record['time_in_pm'] and not record['time_out_pm']:
         cur.execute("UPDATE attendance SET time_out_pm=%s WHERE id=%s", (cur_time_24, record['id']))
         db.commit()
         message = f"{student['name']} AFTERNOON OUT: {cur_time_12}"
-        try:
-            sms_service.send_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
-        except:
-            pass
+        send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
         return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
     return jsonify({'status': 'error', 'message': f'{student["name"]} already completed attendance today (4 scans done)'})
 
