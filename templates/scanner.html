@@ -1,59 +1,65 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
 {% block title %}Scanner - {{ school }}{% endblock %}
 {% block page_title %}Scan QR Code{% endblock %}
-
-{% block content %} 
+{% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card p-3 shadow-sm">
-            
-            <div class="btn-group w-100 mb-3" role="group">
-                <input type="radio" class="btn-check" name="scan_type" id="btn-in" value="in" checked>
-                <label class="btn btn-outline-success btn-lg" for="btn-in"><i class="bi bi-box-arrow-in-right"></i> TIME IN SCAN</label>
-                
-                <input type="radio" class="btn-check" name="scan_type" id="btn-out" value="out">
-                <label class="btn btn-outline-danger btn-lg" for="btn-out"><i class="bi bi-box-arrow-right"></i> TIME OUT SCAN</label>
-            </div>
-            
-            
-            <div id="reader" style="width:100%; max-width: 400px; margin: 0 auto;"></div>
-
-            <!-- RESULT ALERT -->
-            <div id="result" class="alert mt-3 d-none"></div>
-
-            
-            <div class="card p-3 mt-3 border-warning">
-                <h5><i class="bi bi-keyboard"></i> Manual ID Scan</h5>
-                <p class="text-muted small">Type Student ID to scan</p>
-                <input type="text" id="manual-id" placeholder="Ex: 001" class="form-control mb-2">
-                <button onclick="manualScan()" class="btn btn-warning w-100">Manual SCAN</button>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-4">
-        <div class="card p-3 text-center shadow-sm" id="student-info">
-            <p class="text-muted">Scan a QR Code to see student info</p>
-        </div>
-    </div>
-</div> 
-{% endblock %} 
-
-{% block scripts %} 
+<div class="col-md-8">
+<div class="card p-3 shadow-sm">
+<div class="btn-group w-100 mb-3" role="group">
+<input type="radio" class="btn-check" name="scan_type" id="btn-in" value="in" checked>
+<label class="btn btn-outline-success btn-lg" for="btn-in"><i class="bi bi-box-arrow-in-right"></i> TIME IN SCAN</label>
+<input type="radio" class="btn-check" name="scan_type" id="btn-out" value="out">
+<label class="btn btn-outline-danger btn-lg" for="btn-out"><i class="bi bi-box-arrow-right"></i> TIME OUT SCAN</label>
+</div>
+<div id="reader" style="width:100%; max-width: 400px; margin: 0 auto;"></div>
+<div id="result" class="alert mt-3 d-none"></div>
+<div class="card p-3 mt-3 border-warning">
+<h5><i class="bi bi-keyboard"></i> Manual ID Scan</h5>
+<p class="text-muted small">Type Student ID to scan</p>
+<input type="text" id="manual-id" placeholder="Ex: 001" class="form-control mb-2">
+<button onclick="manualScan()" class="btn btn-warning w-100">Manual SCAN</button>
+</div>
+</div>
+</div>
+<div class="col-md-4">
+<div class="card p-3 text-center shadow-sm" id="student-info">
+<p class="text-muted">Scan a QR Code to see student info</p>
+</div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script>
+let canScan = true;
+let lastScanTime = 0;
 function onScanSuccess(decodedText, decodedResult) {
+    if (!canScan) return;
+    let now = Date.now();
+    if (now - lastScanTime < 5000) return;
+    canScan = false;
+    lastScanTime = now;
+    try {
+        html5QrcodeScanner.pause(true);
+    } catch(e) {}
     let scanType = document.querySelector('input[name="scan_type"]:checked').value;
     sendScan(decodedText, scanType);
 }
-
 function manualScan(){
+    if (!canScan) return;
     let sid = document.getElementById('manual-id').value;
-    if(sid == "") { alert("Please enter Student ID"); return; }
+    if(sid == "") {
+        alert("Please enter Student ID");
+        return;
+    }
+    canScan = false;
+    lastScanTime = Date.now();
+    try {
+        html5QrcodeScanner.pause(true);
+    } catch(e) {}
     let scanType = document.querySelector('input[name="scan_type"]:checked').value;
     sendScan(sid, scanType);
 }
-
 function sendScan(studentId, scanType){
     let resultDiv = document.getElementById('result');
     let infoDiv = document.getElementById('student-info');
@@ -85,12 +91,16 @@ function sendScan(studentId, scanType){
         resultDiv.className = 'alert alert-danger mt-3';
         resultDiv.innerHTML = "Error: " + err;
     })
+    .finally(() => {
+        setTimeout(() => {
+            canScan = true;
+            try {
+                html5QrcodeScanner.resume();
+            } catch(e) {}
+        }, 4000);
+    });
 }
-
-let html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-    fps: 10, 
-    qrbox: 250 
-}); 
+let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
 html5QrcodeScanner.render(onScanSuccess);
-</script> 
+</script>
 {% endblock %}
