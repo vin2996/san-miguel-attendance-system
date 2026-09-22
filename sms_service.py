@@ -1,28 +1,38 @@
-# sms_service.py
+import os
 import requests
-from config import SEMAPHORE_API_KEY, SEMAPHORE_SENDER, SMS_ENABLED
+
+IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "YOUR_IPROG_API_TOKEN_HERE")
+IPROG_API_URL = "https://www.iprogsms.com/api/v1/sms_messages"
+
+try:
+    from config import SMS_ENABLED
+except ImportError:
+    SMS_ENABLED = True
 
 def send_sms(number, message):
-    
     if not SMS_ENABLED:
         print(f"[FAKE SMS to {number}]: {message}")
         return True
-
-    url = "https://api.semaphore.co/api/v4/messages"
+    if not number:
+        return False
+    p = number.strip()
+    if p.startswith("+"):
+        p = p[1:]
+    if p.startswith("0"):
+        p = "63" + p[1:]
     payload = {
-        'apikey': SEMAPHORE_API_KEY,
-        'number': number, 
-        'message': message,
-        'sendername': SEMAPHORE_SENDER
+        "api_token": IPROG_API_TOKEN,
+        "phone_number": p,
+        "message": message
     }
     try:
-        response = requests.post(url, data=payload, timeout=10)
-        if response.status_code == 200:
-            print(f"[SMS SENT to {number}]")
+        r = requests.post(IPROG_API_URL, json=payload, timeout=15)
+        if r.status_code == 200:
+            print(f"[IPROG SENT to {p}] {r.text}")
             return True
         else:
-            print(f"[SMS FAILED]: {response.text}") 
+            print(f"[IPROG FAILED]: {r.text}")
             return False
-    except:
-        print("[SMS FAILED]: No Internet")
+    except Exception as e:
+        print(f"[IPROG FAILED]: {e}")
         return False
