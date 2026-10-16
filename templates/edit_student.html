@@ -2,29 +2,26 @@
 {% block content %}
 <div class="card p-4">
 <h2>Edit Student: {{ student[2] }}</h2>
-<form method="POST" id="editForm">
+<form method="POST" id="editForm" enctype="multipart/form-data">
 <div class="mb-3">
 <label class="form-label">Student ID</label>
 <input type="text" class="form-control" value="{{ student[1] }}" disabled>
-<small class="text-muted">Student ID connot be edited</small>
+<small class="text-muted">Student ID cannot be edited</small>
 </div>
 <div class="mb-3">
 <label class="form-label">Name</label>
-<input type="text" name="name" class="form-control" value="{{ student[2] }}" required>
+<div class="form-text mb-1" style="font-size: 12px;">Lastname, Firstname, Middlename</div>
+<input type="text" name="name" class="form-control" value="{{ student[2] }}" placeholder="DELA CRUZ, Juan Santos" required>
 </div>
-
-<!-- FIXED FOR MULTIPLE SECTIONS -->
+<div class="mb-3">
+<label class="form-label">Student Photo</label>
+<input type="file" name="photo" class="form-control" accept="image/*">
+<div class="form-text" style="font-size: 12px;">Leave empty to keep current photo. This will appear on School ID.</div>
+</div>
 <div class="row">
 <div class="col-md-6 mb-3">
 <label class="form-label">Grade Level</label>
-<select id="grade_level" class="form-control" required>
-<option value="Grade 1">Grade 1</option>
-<option value="Grade 2">Grade 2</option>
-<option value="Grade 3">Grade 3</option>
-<option value="Grade 4">Grade 4</option>
-<option value="Grade 5">Grade 5</option>
-<option value="Grade 6">Grade 6</option>
-</select>
+<input type="text" id="grade_level" class="form-control" value="Grade 6" readonly>
 </div>
 <div class="col-md-6 mb-3">
 <label class="form-label">Section</label>
@@ -39,9 +36,7 @@
 </select>
 </div>
 </div>
-
 <input type="hidden" name="grade_section" id="grade_section">
-
 <div class="mb-3">
 <label class="form-label">Parent Name</label>
 <input type="text" name="parent_name" class="form-control" value="{{ student[4] }}">
@@ -54,41 +49,21 @@
 <a href="{{ url_for('students') }}" class="btn btn-secondary">Cancel</a>
 </form>
 </div>
-
 <script>
-// Current value from DB like "Grade 6 - Section A" or "Grade 6 section A"
 var currentVal = "{{ student[3] }}";
-
-function detectGrade() {
-    if (currentVal.includes("Grade 1")) return "Grade 1";
-    if (currentVal.includes("Grade 2")) return "Grade 2";
-    if (currentVal.includes("Grade 3")) return "Grade 3";
-    if (currentVal.includes("Grade 4")) return "Grade 4";
-    if (currentVal.includes("Grade 5")) return "Grade 5";
-    return "Grade 6";
-}
-
 function detectSection() {
-   
-    var sections = ["A", "B", "C", "Mabini", "Bonifacio", "Rizal", "Luna"];
-    for (var s of sections) {
-        if (currentVal.includes(s)) return s;
-    }
-    return "A";
+var sections = ["A", "B", "C", "Mabini", "Bonifacio", "Rizal", "Luna"];
+for (var s of sections) {
+if (currentVal.includes(s)) return s;
 }
-
-document.getElementById('grade_level').value = detectGrade();
+return "A";
+}
 document.getElementById('section_only').value = detectSection();
-
-// On submit combine ulit
 document.getElementById('editForm').addEventListener('submit', function() {
-    var grade = document.getElementById('grade_level').value;
-    var section = document.getElementById('section_only').value;
-    document.getElementById('grade_section').value = grade + " - Section " + section;
+var grade = document.getElementById('grade_level').value;
+var section = document.getElementById('section_only').value;
+document.getElementById('grade_section').value = grade + " - Section " + section;
 });
-
-// Set initial hidden value
 document.getElementById('grade_section').value = currentVal;
 </script>
-
 {% endblock %}

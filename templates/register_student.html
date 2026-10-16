@@ -5,28 +5,37 @@
 <div class="row">
 <div class="col-md-6">
 <div class="card shadow-sm p-4">
-<form method="POST" id="registerForm">
+<form method="POST" id="registerForm" enctype="multipart/form-data">
 <div class="mb-3">
 <label>Student ID</label>
 <input type="text" name="student_id" class="form-control" required>
 </div>
 <div class="mb-3">
 <label>Student Name</label>
-<input type="text" name="name" class="form-control" required>
+<div class="form-text mb-1" style="font-size: 12px;">Lastname, Firstname, Middlename</div>
+<input type="text" name="name" class="form-control" placeholder="Delacruz, Juan, Santos" required>
 </div>
-
-<!-- FIXED FOR MULTIPLE SECTIONS - Panel Ready -->
+<div class="mb-3">
+<label>Student Photo</label>
+<input type="file" name="photo" id="photoInput" class="form-control" accept="image/*" required>
+<div class="d-flex gap-2 mt-2 flex-wrap">
+<button type="button" class="btn btn-outline-primary btn-sm" id="frontBtn"><i class="bi bi-camera"></i> Front Cam</button>
+<button type="button" class="btn btn-outline-primary btn-sm" id="backBtn"><i class="bi bi-camera-fill"></i> Back Cam</button>
+<button type="button" class="btn btn-outline-warning btn-sm d-none" id="switchBtn"><i class="bi bi-arrow-repeat"></i> Switch</button>
+<button type="button" class="btn btn-outline-success btn-sm d-none" id="captureBtn">Capture</button>
+<button type="button" class="btn btn-outline-secondary btn-sm d-none" id="closeBtn">Close</button>
+</div>
+<div class="mt-2">
+<video id="video" width="100%" autoplay playsinline class="d-none" style="border-radius:8px; border:1px solid #ddd;"></video>
+<canvas id="canvas" class="d-none"></canvas>
+<img id="preview" class="img-fluid mt-2 d-none" style="max-height:220px; border-radius:8px; border:1px solid #ddd;">
+</div>
+<div class="form-text" style="font-size: 12px;">Use Front for selfie, Back for rear camera. Photo appears on School ID.</div>
+</div>
 <div class="row">
 <div class="col-md-6 mb-3">
 <label>Grade Level</label>
-<select id="grade_level" class="form-control" required>
-<option value="Grade 1">Grade 1</option>
-<option value="Grade 2">Grade 2</option>
-<option value="Grade 3">Grade 3</option>
-<option value="Grade 4">Grade 4</option>
-<option value="Grade 5">Grade 5</option>
-<option value="Grade 6" selected>Grade 6</option>
-</select>
+<input type="text" id="grade_level" class="form-control" value="Grade 6" readonly>
 </div>
 <div class="col-md-6 mb-3">
 <label>Section</label>
@@ -41,10 +50,7 @@
 </select>
 </div>
 </div>
-
-<!-- Hidden field na magiging Grade 6 - Section A -->
 <input type="hidden" name="grade_section" id="grade_section">
-
 <div class="mb-3">
 <label>Parent / Guardian Name</label>
 <input type="text" name="parent_name" class="form-control">
@@ -59,28 +65,111 @@
 </div>
 <div class="col-md-6">
 <div class="card shadow-sm p-4 text-center">
-<h5><i class="bi bi-qr-code"></i> Generated QR Code</h5>
+<h5><i class="bi bi-qr-code"></i> Generated ID Card</h5>
 {% if qr_path %}
-<img src="{{ url_for('static', filename=qr_path) }}" class="img-fluid my-3" style="max-width: 250px; border: 1px solid #ddd; padding: 5px;">
-<p class="fw-bold">{{ student_name }}</p>
-<a href="{{ url_for('static', filename=qr_path) }}" download="{{ student_id }}.png" class="btn btn-success btn-sm">
-<i class="bi bi-download"></i> Download QR
+<p class="fw-bold mt-3">{{ student_name }} - {{ student_id }}</p>
+<p class="text-success small">ID Card with Photo and QR generated</p>
+<a href="{{ url_for('download_qr', student_id=student_id) }}" class="btn btn-success btn-sm">
+<i class="bi bi-download"></i> Download ID Card
 </a>
 {% else %}
-<p class="text-muted mt-3">QR will appear here after registration</p>
-<small>*Each student has a unique QR Code.</small>
+<p class="text-muted mt-3">ID Card will appear here after registration</p>
+<small>*ID includes photo, name and QR code.</small>
 {% endif %}
 </div>
 </div>
 </div>
-
 <script>
-// Auto combine Grade + Section para sa database
+let stream = null;
+let currentFacing = 'user';
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const preview = document.getElementById('preview');
+const photoInput = document.getElementById('photoInput');
+const frontBtn = document.getElementById('frontBtn');
+const backBtn = document.getElementById('backBtn');
+const switchBtn = document.getElementById('switchBtn');
+const captureBtn = document.getElementById('captureBtn');
+const closeBtn = document.getElementById('closeBtn');
+async function startCamera(facing) {
+  currentFacing = facing;
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    video.classList.remove('d-none');
+    captureBtn.classList.remove('d-none');
+    switchBtn.classList.remove('d-none');
+    closeBtn.classList.remove('d-none');
+    preview.classList.add('d-none');
+  } catch (e) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      video.srcObject = stream;
+      await video.play();
+      video.classList.remove('d-none');
+      captureBtn.classList.remove('d-none');
+      switchBtn.classList.remove('d-none');
+      closeBtn.classList.remove('d-none');
+      preview.classList.add('d-none');
+    } catch (err) {
+      alert('Camera error: ' + err.message);
+    }
+  }
+}
+frontBtn.addEventListener('click', () => startCamera('user'));
+backBtn.addEventListener('click', () => startCamera('environment'));
+switchBtn.addEventListener('click', () => {
+  const next = currentFacing === 'user'? 'environment' : 'user';
+  startCamera(next);
+});
+captureBtn.addEventListener('click', () => {
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+  canvas.toBlob(blob => {
+    const file = new File([blob], 'camera_photo.jpg', { type: 'image/jpeg' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    photoInput.files = dt.files;
+    preview.src = URL.createObjectURL(blob);
+    preview.classList.remove('d-none');
+    video.classList.add('d-none');
+    captureBtn.classList.add('d-none');
+    switchBtn.classList.add('d-none');
+    closeBtn.classList.add('d-none');
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }, 'image/jpeg', 0.9);
+});
+closeBtn.addEventListener('click', () => {
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  video.classList.add('d-none');
+  captureBtn.classList.add('d-none');
+  switchBtn.classList.add('d-none');
+  closeBtn.classList.add('d-none');
+});
+photoInput.addEventListener('change', () => {
+  const f = photoInput.files[0];
+  if (f) {
+    preview.src = URL.createObjectURL(f);
+    preview.classList.remove('d-none');
+  }
+});
 document.getElementById('registerForm').addEventListener('submit', function() {
-    var grade = document.getElementById('grade_level').value;
-    var section = document.getElementById('section_only').value;
-    document.getElementById('grade_section').value = grade + " - Section " + section;
+  var grade = document.getElementById('grade_level').value;
+  var section = document.getElementById('section_only').value;
+  document.getElementById('grade_section').value = grade + " - Section " + section;
 });
 </script>
-
 {% endblock %}
