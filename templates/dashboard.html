@@ -2,56 +2,48 @@
 {% block title %}Dashboard - {{ school }}{% endblock %}
 {% block content %}
 <style>
-.dashboard-ultra { position: relative; z-index: 1; perspective: 1400px; }
-.particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-.particles span { position: absolute; width: 5px; height: 5px; background: rgba(255,255,255,0.75); border-radius: 50%; box-shadow: 0 0 10px rgba(255,255,255,0.9); animation: floatP 11s linear infinite; }
-@keyframes floatP { 0%{transform:translateY(105vh) translateX(0) scale(0); opacity:0} 20%{opacity:1} 100%{transform:translateY(-15vh) translateX(120px) scale(1.6); opacity:0} }
-.card-stat { position: relative; border-radius: 20px; padding: 2.5px; overflow: hidden; transform-style: preserve-3d; transition: transform 0.18s ease; will-change: transform; }
-.card-stat::before { content:''; position:absolute; inset:-2px; background: conic-gradient(from 0deg, transparent 0%, #fff 15%, transparent 30%, #fff 50%, transparent 70%, #fff 85%, transparent 100%); animation: rotateBorder 2.2s linear infinite; z-index:1; }
+.dashboard-ultra { position: relative; z-index: 1; }
+.card-stat { position: relative; border-radius: 20px; padding: 2.5px; overflow: hidden; transition: transform 0.2s ease; }
+.card-stat::before { content:''; position:absolute; inset:-2px; background: conic-gradient(from 0deg, transparent 0%, #fff 20%, transparent 40%, #fff 60%, transparent 80%); animation: rotateBorder 2.5s linear infinite; z-index:1; }
 @keyframes rotateBorder { to{transform:rotate(360deg)} }
 .card-stat-inner { position: relative; border-radius: 18px; padding: 16px 18px; overflow: hidden; z-index: 2; height: 100%; }
-.card-stat .shine1 { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.95) 50%, transparent 80%); transform: rotate(25deg) translateX(-150%); animation: shineLoop 2s infinite; pointer-events:none; z-index:3; }
-.card-stat .shine2 { position:absolute; top:0; left:-120%; width:65%; height:100%; background: linear-gradient(110deg, transparent, rgba(255,255,255,0.6), transparent); transform: skewX(-18deg); animation: shineLoop2 2s infinite 0.35s; pointer-events:none; z-index:3; }
+.card-stat .shine1 { position:absolute; top:-50%; left:-50%; width:200%; height:200%; background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.9) 50%, transparent 80%); transform: rotate(25deg) translateX(-150%); animation: shineLoop 2.4s infinite; pointer-events:none; z-index:3; }
+.card-stat .shine2 { position:absolute; top:0; left:-120%; width:60%; height:100%; background: linear-gradient(110deg, transparent, rgba(255,255,255,0.55), transparent); transform: skewX(-18deg); animation: shineLoop2 2.4s infinite 0.4s; pointer-events:none; z-index:3; }
 @keyframes shineLoop { 0%{transform:rotate(25deg) translateX(-150%)} 55%{transform:rotate(25deg) translateX(150%)} 100%{transform:rotate(25deg) translateX(150%)} }
 @keyframes shineLoop2 { 0%{left:-120%} 55%{left:130%} 100%{left:130%} }
-@keyframes floatCard { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
-.card-total .card-stat-inner { background: linear-gradient(270deg, #0d6efd, #0a58ca, #42a5f5); background-size:600% 600%; animation: gradientMove 4s ease infinite, floatCard 3.5s ease-in-out infinite; box-shadow: inset 0 0 22px rgba(255,255,255,0.18); }
-.card-present .card-stat-inner { background: linear-gradient(270deg, #198754, #0f5132, #4caf50); background-size:600% 600%; animation: gradientMove 4s ease infinite, floatCard 3.5s ease-in-out infinite 0.2s; }
-.card-late .card-stat-inner { background: linear-gradient(270deg, #ff9800, #ffc107, #ff5722); background-size:600% 600%; animation: gradientMove 4s ease infinite, floatCard 3.5s ease-in-out infinite 0.4s, pulseLate 1.5s ease-in-out infinite; }
-.card-absent .card-stat-inner { background: linear-gradient(270deg, #dc3545, #a71d2a, #e57373); background-size:600% 600%; animation: gradientMove 4s ease infinite, floatCard 3.5s ease-in-out infinite 0.6s, pulseAbsent 1.5s ease-in-out infinite; }
-@keyframes gradientMove { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
-@keyframes pulseLate { 0%,100%{box-shadow:0 12px 32px rgba(255,152,0,0.45), 0 0 18px rgba(255,193,7,0.4)} 50%{box-shadow:0 18px 40px rgba(255,152,0,0.65), 0 0 28px rgba(255,193,7,0.7)} }
-@keyframes pulseAbsent { 0%,100%{box-shadow:0 12px 32px rgba(220,53,69,0.45), 0 0 18px rgba(229,115,115,0.4)} 50%{box-shadow:0 18px 42px rgba(220,53,69,0.7), 0 0 32px rgba(229,115,115,0.7)} }
-.glow-follow { position:absolute; inset:0; background: radial-gradient(520px circle at var(--mx) var(--my), rgba(255,255,255,0.32), transparent 48%); opacity:0; transition: opacity 0.25s; pointer-events:none; z-index:4; }
+.card-total .card-stat-inner { background: linear-gradient(135deg, #0d6efd, #0a58ca, #42a5f5); }
+.card-present .card-stat-inner { background: linear-gradient(135deg, #198754, #0f5132, #4caf50); }
+.card-late .card-stat-inner { background: linear-gradient(135deg, #ff9800, #ffc107, #ff5722); animation: pulseLate 1.8s ease-in-out infinite; }
+.card-absent .card-stat-inner { background: linear-gradient(135deg, #dc3545, #a71d2a, #e57373); animation: pulseAbsent 1.8s ease-in-out infinite; }
+@keyframes pulseLate { 0%,100%{box-shadow:0 10px 24px rgba(255,152,0,0.35)} 50%{box-shadow:0 14px 30px rgba(255,152,0,0.6)} }
+@keyframes pulseAbsent { 0%,100%{box-shadow:0 10px 24px rgba(220,53,69,0.35)} 50%{box-shadow:0 14px 30px rgba(220,53,69,0.6)} }
+.glow-follow { position:absolute; inset:0; background: radial-gradient(400px circle at var(--mx) var(--my), rgba(255,255,255,0.28), transparent 50%); opacity:0; transition: opacity 0.25s; pointer-events:none; z-index:4; }
 .card-stat:hover .glow-follow { opacity:1; }
-.icon-pulse { animation: iconPulse 1.5s ease-in-out infinite; display:inline-block; filter: drop-shadow(0 0 8px rgba(255,255,255,0.9)); }
-@keyframes iconPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.32) rotate(5deg)} }
-.count { font-size:30px; font-weight:900; line-height:1; text-shadow:0 2px 12px rgba(0,0,0,0.28), 0 0 22px rgba(255,255,255,0.45); }
-.card-recent { border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(255,255,255,0.6) inset; animation: fadeInUp 0.6s ease-out; position: relative; transform-style: preserve-3d; transition: transform 0.22s ease, box-shadow 0.22s ease; }
-.card-quick { border-radius: 20px; overflow: hidden; border: none; box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(255,255,255,0.6) inset; animation: fadeInUp 0.6s ease-out 0.2s both; position: relative; transform-style: preserve-3d; transition: transform 0.22s ease, box-shadow 0.22s ease; }
-.card-recent:hover, .card-quick:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 22px 48px rgba(0,0,0,0.22); }
-.card-recent::before, .card-quick::before { content:''; position:absolute; top:0; left:-110%; width:55%; height:100%; background: linear-gradient(110deg, transparent, rgba(255,255,255,0.9), transparent); animation: shineLoop2 3s infinite; z-index:3; pointer-events:none; }
-.card-recent .card-header { background: linear-gradient(135deg, #e8f5e9, #c8e6c9, #a5d6a7); background-size:200% 200%; animation: gradientMove 6s ease infinite; border:none; position:relative; overflow:hidden; }
-.card-recent .card-header::after { content:''; position:absolute; top:0; left:-100%; width:50%; height:100%; background: linear-gradient(120deg, transparent, rgba(255,255,255,0.75), transparent); animation: shineLoop2 3.5s infinite; }
-.card-quick .card-header { background: linear-gradient(135deg, #fff3e0, #ffe0b2, #ffcc80); background-size:200% 200%; animation: gradientMove 6s ease infinite; border:none; position:relative; overflow:hidden; }
-.card-quick .card-header::after { content:''; position:absolute; top:0; left:-100%; width:50%; height:100%; background: linear-gradient(120deg, transparent, rgba(255,255,255,0.75), transparent); animation: shineLoop2 3.5s infinite 0.3s; }
-.table-scan-row { position:relative; overflow:hidden; }
-.table-scan-row::after { content:''; position:absolute; top:0; left:-100%; width:100%; height:100%; background: linear-gradient(90deg, transparent, rgba(13,110,253,0.22), transparent); animation: scanSweep 3.8s ease-in-out infinite; pointer-events:none; }
-@keyframes scanSweep { 0%{left:-100%} 50%{left:100%} 100%{left:100%} }
-.btn-gradient { background: linear-gradient(135deg, #0d6efd, #0a58ca, #42a5f5); background-size:200% 200%; animation: gradientMove 3s ease infinite; border:none; box-shadow:0 8px 24px rgba(13,110,253,0.48), 0 0 18px rgba(66,165,245,0.4); position:relative; overflow:hidden; transition: all 0.32s; }
-.btn-gradient::before { content:''; position:absolute; top:0; left:-110%; width:60%; height:100%; background: linear-gradient(120deg, transparent, rgba(255,255,255,0.9), transparent); animation: shineLoop2 1.7s infinite; }
-.btn-gradient:hover { transform: translateY(-3px) scale(1.05); box-shadow:0 14px 36px rgba(13,110,253,0.62), 0 0 28px rgba(66,165,245,0.6); }
-.btn-outline-anim { transition: all 0.32s; position:relative; overflow:hidden; }
-.btn-outline-anim::before { content:''; position:absolute; top:0; left:-100%; width:50%; height:100%; background: linear-gradient(120deg, transparent, rgba(255,255,255,0.7), transparent); transition: left 0.6s; }
-.btn-outline-anim:hover::before { left:120%; }
-.btn-outline-anim:hover { transform: translateY(-2px) scale(1.02); background: linear-gradient(135deg, #f5f5f5, #e0e0e0); box-shadow:0 8px 20px rgba(0,0,0,0.14); }
-@keyframes fadeInUp { from{opacity:0; transform:translateY(18px)} to{opacity:1; transform:translateY(0)} }
+.card-stat:hover { transform: translateY(-4px) scale(1.02); }
+.icon-pulse { animation: iconPulse 1.6s ease-in-out infinite; display:inline-block; }
+@keyframes iconPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.2)} }
+.count { font-size:28px; font-weight:900; line-height:1; }
+.card-recent { border-radius: 18px; overflow: hidden; border: none; box-shadow: 0 10px 28px rgba(0,0,0,0.12); background: #fff; position: relative; }
+.card-quick { border-radius: 18px; overflow: hidden; border: none; box-shadow: 0 10px 28px rgba(0,0,0,0.12); background: #fff; position: relative; }
+.card-recent::before, .card-quick::before { content:''; position:absolute; top:0; left:-110%; width:50%; height:100%; background: linear-gradient(110deg, transparent, rgba(255,255,255,0.85), transparent); animation: shineLoop2 3.2s infinite; z-index:2; pointer-events:none; }
+.card-recent .card-header { background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border:none; }
+.card-quick .card-header { background: linear-gradient(135deg, #fff3e0, #ffe0b2); border:none; }
+.fix-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.fix-table th { font-size: 11.5px; font-weight: 800; white-space: nowrap; padding: 10px 6px; color: #37474f; background: #f8faf9; border-bottom: 1px solid rgba(0,0,0,0.08); text-align: left; }
+.fix-table td { font-size: 12.5px; padding: 10px 6px; border-bottom: 1px solid rgba(0,0,0,0.06); vertical-align: top; text-align: left; }
+.fix-table td:first-child { white-space: normal; font-weight: 600; word-break: break-word; }
+.time-cell { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; line-height: 1.1; }
+.table-wrap { overflow-x: auto; }
+.btn-gradient { background: linear-gradient(135deg, #0d6efd, #0a58ca); border: none; box-shadow: 0 6px 16px rgba(13,110,253,0.35); position: relative; overflow: hidden; }
+.btn-gradient::before { content:''; position:absolute; top:0; left:-110%; width:60%; height:100%; background: linear-gradient(120deg, transparent, rgba(255,255,255,0.8), transparent); animation: shineLoop2 1.8s infinite; }
+.btn-outline-anim { position:relative; overflow:hidden; transition: all 0.25s; }
+.btn-outline-anim:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.12); }
+@keyframes fadeInUp { from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)} }
 </style>
-<div class="particles" id="particles"></div>
 <div class="dashboard-ultra">
-<div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+<div class="d-flex justify-content-between align-items-center mb-4">
 <h2 class="fw-bold mb-0"><i class="bi bi-speedometer2"></i> Dashboard</h2>
-<h5 class="text-muted mb-0" id="live-date" style="background:rgba(255,255,255,0.85); padding:7px 16px; border-radius:20px; backdrop-filter:blur(8px); box-shadow:0 6px 16px rgba(0,0,0,0.12);">{{ today.strftime('%B %d, %Y') }}</h5>
+<h5 class="text-muted mb-0" id="live-date" style="background:rgba(255,255,255,0.85); padding:7px 16px; border-radius:20px; backdrop-filter:blur(6px); box-shadow:0 4px 12px rgba(0,0,0,0.1);">{{ today.strftime('%B %d, %Y') }}</h5>
 </div>
 <script>
 function updatePHDate(){
@@ -59,123 +51,52 @@ const options={timeZone:'Asia/Manila', year:'numeric', month:'long', day:'numeri
 document.getElementById('live-date').innerText=new Date().toLocaleDateString('en-US', options);
 }
 updatePHDate();
-const pWrap=document.getElementById('particles');
-for(let i=0;i<24;i++){
-let s=document.createElement('span');
-s.style.left=Math.random()*100+'%';
-s.style.animationDelay=(Math.random()*11)+'s';
-s.style.animationDuration=(7+Math.random()*9)+'s';
-s.style.width=(3+Math.random()*6)+'px';
-s.style.height=s.style.width;
-pWrap.appendChild(s);
-}
 </script>
 <div class="row mb-4">
-<div class="col-6 col-md-3 mb-3 fade-in fade-in-1">
-<div class="card-stat card-total text-white shadow-sm h-100">
-<div class="card-stat-inner">
-<div class="glow-follow"></div>
-<div class="shine1"></div><div class="shine2"></div>
-<h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-people-fill icon-pulse"></i> Total Students</h6>
-<h2 class="fw-bold count" data-target="{{ total }}" style="position:relative; z-index:4;">0</h2>
-<small style="position:relative; z-index:4;">{{ grade }}</small>
+<div class="col-6 col-md-3 mb-3" style="animation:fadeInUp 0.5s ease both;">
+<div class="card-stat card-total text-white h-100"><div class="card-stat-inner"><div class="glow-follow"></div><div class="shine1"></div><div class="shine2"></div><h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-people-fill icon-pulse"></i> Total Students</h6><h2 class="fw-bold count" data-target="{{ total }}" style="position:relative; z-index:4;">{{ total }}</h2><small style="position:relative; z-index:4;">{{ grade }}</small></div></div>
 </div>
+<div class="col-6 col-md-3 mb-3" style="animation:fadeInUp 0.5s ease 0.1s both;">
+<div class="card-stat card-present text-white h-100"><div class="card-stat-inner"><div class="glow-follow"></div><div class="shine1"></div><div class="shine2"></div><h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-person-check-fill icon-pulse"></i> Present</h6><h2 class="fw-bold count" data-target="{{ present }}" style="position:relative; z-index:4;">{{ present }}</h2><small style="position:relative; z-index:4;">Timed In Today</small></div></div>
 </div>
+<div class="col-6 col-md-3 mb-3" style="animation:fadeInUp 0.5s ease 0.2s both;">
+<div class="card-stat card-late h-100" style="color:#000;"><div class="card-stat-inner"><div class="glow-follow"></div><div class="shine1"></div><div class="shine2"></div><h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-clock-fill icon-pulse"></i> Late</h6><h2 class="fw-bold count" data-target="{{ late }}" style="position:relative; z-index:4;">{{ late }}</h2><small style="position:relative; z-index:4;">After 7:30 AM / 1:00 PM</small></div></div>
 </div>
-<div class="col-6 col-md-3 mb-3 fade-in fade-in-2">
-<div class="card-stat card-present text-white shadow-sm h-100">
-<div class="card-stat-inner">
-<div class="glow-follow"></div>
-<div class="shine1"></div><div class="shine2"></div>
-<h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-person-check-fill icon-pulse"></i> Present</h6>
-<h2 class="fw-bold count" data-target="{{ present }}" style="position:relative; z-index:4;">0</h2>
-<small style="position:relative; z-index:4;">Timed In Today</small>
-</div>
-</div>
-</div>
-<div class="col-6 col-md-3 mb-3 fade-in fade-in-3">
-<div class="card-stat card-late shadow-sm h-100" style="color:#000;">
-<div class="card-stat-inner">
-<div class="glow-follow"></div>
-<div class="shine1"></div><div class="shine2"></div>
-<h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-clock-fill icon-pulse"></i> Late</h6>
-<h2 class="fw-bold count" data-target="{{ late }}" style="position:relative; z-index:4;">0</h2>
-<small style="position:relative; z-index:4;">After 7:30 AM / 1:00 PM</small>
-</div>
-</div>
-</div>
-<div class="col-6 col-md-3 mb-3 fade-in fade-in-4">
-<div class="card-stat card-absent text-white shadow-sm h-100">
-<div class="card-stat-inner">
-<div class="glow-follow"></div>
-<div class="shine1"></div><div class="shine2"></div>
-<h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-person-x-fill icon-pulse"></i> Absent</h6>
-<h2 class="fw-bold count" data-target="{{ absent }}" style="position:relative; z-index:4;">0</h2>
-<small style="position:relative; z-index:4;">Not Timed In</small>
-</div>
-</div>
+<div class="col-6 col-md-3 mb-3" style="animation:fadeInUp 0.5s ease 0.3s both;">
+<div class="card-stat card-absent text-white h-100"><div class="card-stat-inner"><div class="glow-follow"></div><div class="shine1"></div><div class="shine2"></div><h6 class="card-title" style="font-size:12px; font-weight:700; position:relative; z-index:4;"><i class="bi bi-person-x-fill icon-pulse"></i> Absent</h6><h2 class="fw-bold count" data-target="{{ absent }}" style="position:relative; z-index:4;">{{ absent }}</h2><small style="position:relative; z-index:4;">Not Timed In</small></div></div>
 </div>
 </div>
 <div class="row g-3">
 <div class="col-md-8">
 <div class="card card-recent h-100">
-<div class="card-header d-flex justify-content-between align-items-center">
-<h5 class="mb-0 fw-bold"><i class="bi bi-activity"></i> Recent Activity Today</h5>
-<div><span class="badge bg-success">AM: 7:30 AM</span> <span class="badge bg-primary">PM: 1:00 PM</span></div>
-</div>
-<div class="card-body bg-white">
+<div class="card-header d-flex justify-content-between align-items-center"><h5 class="mb-0 fw-bold"><i class="bi bi-activity"></i> Recent Activity Today</h5><div><span class="badge bg-success">AM: 7:30 AM</span> <span class="badge bg-primary">PM: 1:00 PM</span></div></div>
+<div class="card-body bg-white p-0">
 {% if recent %}
-<div class="table-responsive">
-<table class="table table-hover align-middle mb-0">
-<thead>
-<tr>
-<th>Name</th>
-<th><span class="badge bg-success">AM</span> In</th>
-<th><span class="badge bg-warning text-dark">Lunch</span> Out</th>
-<th><span class="badge bg-primary">PM</span> In</th>
-<th><span class="badge bg-danger">PM</span> Out</th>
-<th>Status</th>
-</tr>
-</thead>
+<div class="table-wrap">
+<table class="fix-table">
+<thead><tr><th style="width:26%">Name</th><th style="width:18%">AM In</th><th style="width:18%">Lunch Out</th><th style="width:16%">PM In</th><th style="width:12%">PM Out</th><th style="width:10%">Status</th></tr></thead>
 <tbody>
 {% for r in recent %}
-<tr class="table-scan-row">
-<td class="fw-medium">{{ r['name'] }}</td>
-<td>{{ format_time(r['time_in_am']) }} {% if r['time_in_am'] %}<br>{% if r['time_in_am'] > late_am %}<span class="badge bg-warning text-dark">Late</span>{% else %}<span class="badge bg-success">Present</span>{% endif %}{% endif %}</td>
-<td>{{ format_time(r['time_out_am']) }}</td>
-<td>{{ format_time(r['time_in_pm']) }} {% if r['time_in_pm'] %}<br>{% if r['time_in_pm'] > late_pm %}<span class="badge bg-warning text-dark">Late</span>{% else %}<span class="badge bg-success">Present</span>{% endif %}{% endif %}</td>
-<td>{{ format_time(r['time_out_pm']) }}</td>
-<td>{% if r['status']=='Present' %}<span class="badge bg-success">{{ r['status'] }}</span>{% else %}<span class="badge bg-warning text-dark">{{ r['status'] }}</span>{% endif %}</td>
+<tr>
+<td>{{ r['name'] }}</td>
+<td><div class="time-cell"><span>{{ format_time(r['time_in_am']) }}</span>{% if r['time_in_am'] %}{% if r['time_in_am'] > late_am %}<span class="badge bg-warning text-dark" style="font-size:9px;">Late</span>{% else %}<span class="badge bg-success" style="font-size:9px;">Present</span>{% endif %}{% endif %}</div></td>
+<td><div class="time-cell"><span>{{ format_time(r['time_out_am']) }}</span></div></td>
+<td><div class="time-cell"><span>{{ format_time(r['time_in_pm']) }}</span>{% if r['time_in_pm'] %}{% if r['time_in_pm'] > late_pm %}<span class="badge bg-warning text-dark" style="font-size:9px;">Late</span>{% else %}<span class="badge bg-success" style="font-size:9px;">Present</span>{% endif %}{% endif %}</div></td>
+<td><div class="time-cell"><span>{{ format_time(r['time_out_pm']) }}</span></div></td>
+<td>{% if r['status']=='Present' %}<span class="badge bg-success" style="font-size:10px;">{{ r['status'] }}</span>{% else %}<span class="badge bg-warning text-dark" style="font-size:10px;">{{ r['status'] }}</span>{% endif %}</td>
 </tr>
 {% endfor %}
 </tbody>
 </table>
 </div>
 {% else %}
-<div class="text-center text-muted py-4">
-<i class="bi bi-inbox" style="font-size:2rem;"></i>
-<p>No attendance recorded yet today.</p>
-</div>
+<div class="text-center text-muted py-4"><i class="bi bi-inbox" style="font-size:2rem;"></i><p>No attendance recorded yet today.</p></div>
 {% endif %}
 </div>
 </div>
 </div>
 <div class="col-md-4">
-<div class="card card-quick h-100">
-<div class="card-header">
-<h5 class="mb-0 fw-bold"><i class="bi bi-lightning-fill"></i> Quick Actions</h5>
-</div>
-<div class="card-body bg-white d-grid gap-2">
-<a href="{{ url_for('scanner') }}" class="btn btn-gradient text-white fw-bold" style="padding:12px; border-radius:12px;">
-<i class="bi bi-qr-code-scan icon-pulse"></i> Open Scanner
-</a>
-<a href="{{ url_for('attendance') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-list-check"></i> View All Attendance</a>
-<a href="{{ url_for('reports') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-bar-chart-fill"></i> View Reports</a>
-{% if session['role'] == 'Admin' %}
-<a href="{{ url_for('students') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-person-plus-fill"></i> Manage Students</a>
-{% endif %}
-</div>
-</div>
+<div class="card card-quick h-100"><div class="card-header"><h5 class="mb-0 fw-bold"><i class="bi bi-lightning-fill"></i> Quick Actions</h5></div><div class="card-body bg-white d-grid gap-2"><a href="{{ url_for('scanner') }}" class="btn btn-gradient text-white fw-bold" style="padding:12px; border-radius:12px;"><i class="bi bi-qr-code-scan icon-pulse"></i> Open Scanner</a><a href="{{ url_for('attendance') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-list-check"></i> View All Attendance</a><a href="{{ url_for('reports') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-bar-chart-fill"></i> View Reports</a>{% if session['role'] == 'Admin' %}<a href="{{ url_for('students') }}" class="btn btn-outline-anim btn-outline-secondary" style="border-radius:12px;"><i class="bi bi-person-plus-fill"></i> Manage Students</a>{% endif %}</div></div>
 </div>
 </div>
 </div>
@@ -185,30 +106,16 @@ pWrap.appendChild(s);
 document.querySelectorAll('.count').forEach(el=>{
 let target=parseInt(el.getAttribute('data-target'))||0;
 let cur=0;
-let step=Math.max(1, Math.ceil(target/30));
-let t=setInterval(()=>{
-cur+=step;
-if(cur>=target){el.textContent=target; clearInterval(t);} else {el.textContent=cur;}
-},32);
+let step=Math.max(1, Math.ceil(target/24));
+let t=setInterval(()=>{ cur+=step; if(cur>=target){el.textContent=target; clearInterval(t);} else {el.textContent=cur;} },35);
 });
 document.querySelectorAll('.card-stat').forEach(card=>{
 card.addEventListener('mousemove', e=>{
 let r=card.getBoundingClientRect();
 let x=e.clientX-r.left;
 let y=e.clientY-r.top;
-let cx=r.width/2;
-let cy=r.height/2;
-let rx=(y-cy)/12;
-let ry=(cx-x)/14;
-card.style.transform='perspective(900px) rotateX('+rx+'deg) rotateY('+ry+'deg) translateY(-7px) scale(1.04)';
-let gf=card.querySelector('.glow-follow');
-if(gf){
-gf.style.setProperty('--mx', x+'px');
-gf.style.setProperty('--my', y+'px');
-}
-});
-card.addEventListener('mouseleave', ()=>{
-card.style.transform='perspective(900px) rotateX(0) rotateY(0) translateY(0) scale(1)';
+card.querySelector('.glow-follow').style.setProperty('--mx', x+'px');
+card.querySelector('.glow-follow').style.setProperty('--my', y+'px');
 });
 });
 </script>
