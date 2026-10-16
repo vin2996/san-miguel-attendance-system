@@ -9,11 +9,13 @@ import requests
 import zipfile
 import io
 from PIL import Image, ImageDraw, ImageFont
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except:
     pass
+
 try:
     from zoneinfo import ZoneInfo
     try:
@@ -25,6 +27,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
+
 LATE_CUTOFF = "07:30:00"
 LATE_CUTOFF_PM = "13:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
@@ -159,18 +162,7 @@ def init_db():
         else:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
             cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT, photo TEXT)')
-            cur.execute('''CREATE TABLE IF NOT EXISTS attendance (
-                id SERIAL PRIMARY KEY,
-                student_id TEXT NOT NULL,
-                date TEXT NOT NULL,
-                time_in TEXT,
-                time_out TEXT,
-                status TEXT DEFAULT 'Present',
-                scanned_by TEXT,
-                time_in_am TEXT,
-                time_out_am TEXT,
-                time_in_pm TEXT,
-                time_out_pm TEXT)''')
+            cur.execute('''CREATE TABLE IF NOT EXISTS attendance ( id SERIAL PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT 'Present', scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)''')
             cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
             cur.execute("SELECT * FROM users WHERE username='admin'")
             if not cur.fetchone():
@@ -191,26 +183,42 @@ def generate_id_card(student):
     W, H = 700, 1050
     card = Image.new('RGB', (W, H), '#ffffff')
     draw = ImageDraw.Draw(card)
-    try:
-        font_header = ImageFont.truetype("arialbd.ttf", 28)
-        font_name = ImageFont.truetype("arialbd.ttf", 36)
-        font_detail = ImageFont.truetype("arial.ttf", 26)
-        font_small = ImageFont.truetype("arial.ttf", 22)
-    except:
-        font_header = ImageFont.load_default()
-        font_name = ImageFont.load_default()
-        font_detail = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+
+    def get_font(size, bold=False):
+        font_paths = []
+        if bold:
+            font_paths = [
+                "arialbd.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "DejaVuSans-Bold.ttf"
+            ]
+        else:
+            font_paths = [
+                "arial.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "DejaVuSans.ttf"
+            ]
+        for fp in font_paths:
+            try:
+                return ImageFont.truetype(fp, size)
+            except:
+                continue
+        return ImageFont.load_default()
+
+    font_header = get_font(26, True)
+    font_name = get_font(32, True)
+    font_detail = get_font(24, False)
+    font_small = get_font(20, False)
+    font_qr = get_font(18, True)
+
     draw.rectangle([0, 0, W, 110], fill='#0d47a1')
-    try:
-        draw.text((W//2, 55), SCHOOL_NAME.upper(), fill='white', font=font_header, anchor='mm')
-    except:
-        draw.text((W//2 - 150, 40), SCHOOL_NAME.upper(), fill='white', font=font_header)
-    draw.rectangle([0, 110, W, 145], fill='#ffca28')
-    try:
-        draw.text((W//2, 127), GRADE_LEVEL, fill='black', font=font_small, anchor='mm')
-    except:
-        draw.text((W//2 - 40, 117), GRADE_LEVEL, fill='black', font=font_small)
+    draw.text((W//2, 55), SCHOOL_NAME.upper(), fill='white', font=font_header, anchor='mm')
+
+    draw.rectangle([0, 110, W, 155], fill='#ffca28')
+    draw.text((W//2, 132), GRADE_LEVEL, fill='black', font=font_small, anchor='mm')
+
     photo_file = student.get('photo')
     img_path = None
     if photo_file:
@@ -221,40 +229,36 @@ def generate_id_card(student):
             if os.path.exists(pp):
                 img_path = pp
                 break
+
     photo_size = 280
     photo_x = (W - photo_size)//2
-    photo_y = 175
+    photo_y = 185
+
     if img_path:
         try:
             p_img = Image.open(img_path).convert('RGB')
             p_img = p_img.resize((photo_size, photo_size))
             mask = Image.new('L', (photo_size, photo_size), 0)
-            ImageDraw.Draw(mask).ellipse((0,0,photo_size,photo_size), fill=255)
+            ImageDraw.Draw(mask).ellipse((0, 0, photo_size, photo_size), fill=255)
             card.paste(p_img, (photo_x, photo_y), mask)
             draw.ellipse([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], outline='#0d47a1', width=4)
         except:
             draw.rectangle([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], fill='#e0e0e0')
+            draw.text((W//2, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail, anchor='mm')
     else:
         draw.rectangle([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], fill='#e0e0e0')
-        try:
-            draw.text((W//2, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail, anchor='mm')
-        except:
-            draw.text((W//2-60, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail)
-    try:
-        draw.text((W//2, 520), str(student.get('name','')).upper(), fill='black', font=font_name, anchor='mm')
-        draw.text((W//2, 565), f"ID: {student.get('student_id','')}", fill='#424242', font=font_detail, anchor='mm')
-        draw.text((W//2, 600), f"{student.get('grade_section','')}", fill='#424242', font=font_detail, anchor='mm')
-    except:
-        draw.text((50, 520), str(student.get('name','')).upper(), fill='black', font=font_name)
-        draw.text((50, 565), f"ID: {student.get('student_id','')}", fill='#424242', font=font_detail)
+        draw.text((W//2, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail, anchor='mm')
+
+    draw.text((W//2, 530), str(student.get('name','')).upper(), fill='#0a2a5e', font=font_name, anchor='mm')
+    draw.text((W//2, 575), f"ID: {student.get('student_id','')}", fill='#424242', font=font_detail, anchor='mm')
+    draw.text((W//2, 610), f"{student.get('grade_section','')}", fill='#424242', font=font_detail, anchor='mm')
+
     qr_data = str(student.get('student_id',''))
     qr_img = qrcode.make(qr_data)
     qr_img = qr_img.resize((320, 320))
-    card.paste(qr_img, ((W-320)//2, 650))
-    try:
-        draw.text((W//2, 1000), "SCAN FOR ATTENDANCE", fill='#757575', font=font_small, anchor='mm')
-    except:
-        draw.text((W//2-110, 1000), "SCAN FOR ATTENDANCE", fill='#757575', font=font_small)
+    card.paste(qr_img, ((W-320)//2, 660))
+
+    draw.text((W//2, 1010), "SCAN FOR ATTENDANCE", fill='#757575', font=font_qr, anchor='mm')
     return card
 
 @app.route('/', methods=['GET', 'POST'])
@@ -351,7 +355,11 @@ def dashboard():
     present_today = cur.fetchone()['c']
     cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [today_str])
     late_today = cur.fetchone()['c']
-    absent_today = 0 if present_today == 0 else total - present_today
+    absent_today = 0
+    if present_today == 0:
+        pass
+    else:
+        absent_today = total - present_today
     cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status, a.scanned_by FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
     recent = cur.fetchall()
     return render_template('dashboard.html', total=total, present=present_today, late=late_today, absent=absent_today, recent=recent, school=SCHOOL_NAME, grade=GRADE_LEVEL, today=get_ph_date(), format_time=format_time_12hr, late_am=LATE_CUTOFF, late_pm=LATE_CUTOFF_PM)
@@ -673,7 +681,7 @@ def reports():
     sections = cur.fetchall()
     section_stats = []
     for sec in sections:
-        cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance JOIN students ON attendance.student_id = students.student_id WHERE attendance.date=%s AND students.grade_section=%s AND attendance.time_in_am IS NOT NULL", [filter_date, sec['grade_section']])
+        cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance JOIN students s ON attendance.student_id = students.student_id WHERE attendance.date=%s AND students.grade_section=%s AND attendance.time_in_am IS NOT NULL", [filter_date, sec['grade_section']])
         sp = cur.fetchone()['c']
         section_stats.append({'section': sec['grade_section'], 'total': sec['total_students'], 'present': sp, 'absent': sec['total_students'] - sp})
     cur.execute("SELECT student_id, name, grade_section FROM students WHERE student_id NOT IN (SELECT student_id FROM attendance WHERE date=%s AND time_in_am IS NOT NULL)", [filter_date])
