@@ -2,29 +2,219 @@
 {% block title %}Dashboard - {{ school }}{% endblock %}
 {% block content %}
 <style>
-.card-stat { position: relative; overflow: hidden; border: none; border-radius: 18px; animation: floatCard 3.5s ease-in-out infinite; }
-.card-stat::before { content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%; background: linear-gradient(120deg, transparent 25%, rgba(255,255,255,0.4) 50%, transparent 75%); transform: rotate(25deg) translateX(-150%); animation: shineLoop 2.8s infinite; pointer-events:none; }
-@keyframes shineLoop { 0% { transform: rotate(25deg) translateX(-150%); } 100% { transform: rotate(25deg) translateX(150%); } }
-@keyframes floatCard { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-.card-total { background: linear-gradient(270deg, #0d6efd, #0a58ca, #42a5f5); background-size: 600% 600%; animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite; box-shadow: 0 10px 28px rgba(13,71,161,0.4); }
-.card-present { background: linear-gradient(270deg, #198754, #0f5132, #4caf50); background-size: 600% 600%; animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.2s; box-shadow: 0 10px 28px rgba(25,135,84,0.4); }
-.card-late { background: linear-gradient(270deg, #ff9800, #ffc107, #ff5722); background-size: 600% 600%; animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.4s; box-shadow: 0 10px 28px rgba(255,152,0,0.4); }
-.card-absent { background: linear-gradient(270deg, #dc3545, #a71d2a, #e57373); background-size: 600% 600%; animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.6s; box-shadow: 0 10px 28px rgba(220,53,69,0.4); }
-@keyframes gradientMove { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.icon-pulse { animation: iconPulse 1.8s ease-in-out infinite; display:inline-block; }
-@keyframes iconPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.25); } }
-
-.card-recent { border-radius: 18px; overflow: hidden; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.1); animation: fadeInUp 0.6s ease-out; }
-.card-recent .card-header { background: linear-gradient(135deg, #e8f5e9, #c8e6c9, #a5d6a7); background-size: 200% 200%; animation: gradientMove 6s ease infinite; border: none; }
-.card-quick { border-radius: 18px; overflow: hidden; border: none; box-shadow: 0 8px 24px rgba(0,0,0,0.1); animation: fadeInUp 0.6s ease-out 0.2s both; }
-.card-quick .card-header { background: linear-gradient(135deg, #fff3e0, #ffe0b2, #ffcc80); background-size: 200% 200%; animation: gradientMove 6s ease infinite; border: none; }
-.btn-gradient { background: linear-gradient(135deg, #0d6efd, #0a58ca, #42a5f5); background-size: 200% 200%; animation: gradientMove 3s ease infinite; border: none; box-shadow: 0 4px 15px rgba(13,110,253,0.3); transition: all 0.3s; }
-.btn-gradient:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 20px rgba(13,110,253,0.4); }
-.btn-outline-anim { transition: all 0.3s; position: relative; overflow: hidden; }
-.btn-outline-anim:hover { transform: translateY(-2px); background: linear-gradient(135deg, #f5f5f5, #e0e0e0); }
-@keyframes fadeInUp { from { opacity:0; transform: translateY(15px); } to { opacity:1; transform: translateY(0); } }
+.card-stat {
+position: relative;
+overflow: hidden;
+border: none;
+border-radius: 18px;
+animation: floatCard 3.5s ease-in-out infinite;
+}
+.card-stat::before {
+content:'';
+position:absolute;
+top:-50%;
+left:-50%;
+width:200%;
+height:200%;
+background: linear-gradient(120deg, transparent 20%, rgba(255,255,255,0.85) 50%, transparent 80%);
+transform: rotate(25deg) translateX(-150%);
+animation: shineLoop 2.2s infinite;
+pointer-events:none;
+z-index:2;
+}
+.card-stat::after {
+content:'';
+position:absolute;
+top:0;
+left:-120%;
+width:60%;
+height:100%;
+background: linear-gradient(110deg, transparent, rgba(255,255,255,0.5), transparent);
+transform: skewX(-20deg);
+animation: shineLoop2 2.2s infinite 0.4s;
+pointer-events:none;
+z-index:2;
+}
+@keyframes shineLoop {
+0% { transform: rotate(25deg) translateX(-150%); }
+55% { transform: rotate(25deg) translateX(150%); }
+100% { transform: rotate(25deg) translateX(150%); }
+}
+@keyframes shineLoop2 {
+0% { left: -120%; }
+55% { left: 130%; }
+100% { left: 130%; }
+}
+@keyframes floatCard {
+0%,100% { transform: translateY(0); }
+50% { transform: translateY(-6px); }
+}
+.card-total {
+background: linear-gradient(270deg, #0d6efd, #0a58ca, #42a5f5);
+background-size: 600% 600%;
+animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite;
+box-shadow: 0 12px 32px rgba(13,71,161,0.45), 0 0 18px rgba(66,165,245,0.4);
+}
+.card-present {
+background: linear-gradient(270deg, #198754, #0f5132, #4caf50);
+background-size: 600% 600%;
+animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.2s;
+box-shadow: 0 12px 32px rgba(25,135,84,0.45), 0 0 18px rgba(76,175,80,0.4);
+}
+.card-late {
+background: linear-gradient(270deg, #ff9800, #ffc107, #ff5722);
+background-size: 600% 600%;
+animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.4s;
+box-shadow: 0 12px 32px rgba(255,152,0,0.45), 0 0 18px rgba(255,193,7,0.4);
+}
+.card-absent {
+background: linear-gradient(270deg, #dc3545, #a71d2a, #e57373);
+background-size: 600% 600%;
+animation: gradientMove 5s ease infinite, floatCard 3.5s ease-in-out infinite 0.6s;
+box-shadow: 0 12px 32px rgba(220,53,69,0.45), 0 0 18px rgba(229,115,0.4);
+}
+@keyframes gradientMove {
+0% { background-position: 0% 50%; }
+50% { background-position: 100% 50%; }
+100% { background-position: 0% 50%; }
+}
+.icon-pulse {
+animation: iconPulse 1.8s ease-in-out infinite;
+display:inline-block;
+filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+}
+@keyframes iconPulse {
+0%,100% { transform: scale(1); }
+50% { transform: scale(1.25); }
+}
+.card-recent {
+border-radius: 18px;
+overflow: hidden;
+border: none;
+box-shadow: 0 10px 28px rgba(0,0,0,0.12), 0 0 20px rgba(0,0,0,0.04);
+animation: fadeInUp 0.6s ease-out;
+position: relative;
+}
+.card-recent::before {
+content:'';
+position:absolute;
+top:0;
+left:-110%;
+width:55%;
+height:100%;
+background: linear-gradient(110deg, transparent, rgba(255,255,255,0.85), transparent);
+animation: shineLoop2 3s infinite;
+z-index:3;
+pointer-events:none;
+}
+.card-recent .card-header {
+background: linear-gradient(135deg, #e8f5e9, #c8e6c9, #a5d6a7);
+background-size: 200% 200%;
+animation: gradientMove 6s ease infinite;
+border: none;
+position: relative;
+overflow: hidden;
+}
+.card-recent .card-header::after {
+content:'';
+position:absolute;
+top:0;
+left:-100%;
+width:50%;
+height:100%;
+background: linear-gradient(120deg, transparent, rgba(255,255,255,0.7), transparent);
+animation: shineLoop2 3.5s infinite;
+}
+.card-quick {
+border-radius: 18px;
+overflow: hidden;
+border: none;
+box-shadow: 0 10px 28px rgba(0,0,0,0.12), 0 0 20px rgba(0,0,0,0.04);
+animation: fadeInUp 0.6s ease-out 0.2s both;
+position: relative;
+}
+.card-quick::before {
+content:'';
+position:absolute;
+top:0;
+left:-110%;
+width:55%;
+height:100%;
+background: linear-gradient(110deg, transparent, rgba(255,255,255,0.85), transparent);
+animation: shineLoop2 3.2s infinite 0.5s;
+z-index:3;
+pointer-events:none;
+}
+.card-quick .card-header {
+background: linear-gradient(135deg, #fff3e0, #ffe0b2, #ffcc80);
+background-size: 200% 200%;
+animation: gradientMove 6s ease infinite;
+border: none;
+position: relative;
+overflow: hidden;
+}
+.card-quick .card-header::after {
+content:'';
+position:absolute;
+top:0;
+left:-100%;
+width:50%;
+height:100%;
+background: linear-gradient(120deg, transparent, rgba(255,255,255,0.7), transparent);
+animation: shineLoop2 3.5s infinite 0.3s;
+}
+.btn-gradient {
+background: linear-gradient(135deg, #0d6efd, #0a58ca, #42a5f5);
+background-size: 200% 200%;
+animation: gradientMove 3s ease infinite;
+border: none;
+box-shadow: 0 6px 18px rgba(13,110,253,0.4), 0 0 12px rgba(13,110,253,0.25);
+transition: all 0.3s;
+position: relative;
+overflow: hidden;
+}
+.btn-gradient::before {
+content:'';
+position:absolute;
+top:0;
+left:-110%;
+width:60%;
+height:100%;
+background: linear-gradient(120deg, transparent, rgba(255,255,255,0.75), transparent);
+animation: shineLoop2 2s infinite;
+}
+.btn-gradient:hover {
+transform: translateY(-3px) scale(1.03);
+box-shadow: 0 10px 28px rgba(13,110,253,0.55), 0 0 20px rgba(66,165,245,0.5);
+}
+.btn-outline-anim {
+transition: all 0.3s;
+position: relative;
+overflow: hidden;
+}
+.btn-outline-anim::before {
+content:'';
+position:absolute;
+top:0;
+left:-100%;
+width:50%;
+height:100%;
+background: linear-gradient(120deg, transparent, rgba(255,255,255,0.6), transparent);
+transition: left 0.6s;
+}
+.btn-outline-anim:hover::before {
+left: 120%;
+}
+.btn-outline-anim:hover {
+transform: translateY(-2px);
+background: linear-gradient(135deg, #f5f5f5, #e0e0e0);
+box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+@keyframes fadeInUp {
+from { opacity:0; transform: translateY(15px); }
+to { opacity:1; transform: translateY(0); }
+}
 </style>
-
 <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
 <h2 class="fw-bold mb-0"><i class="bi bi-speedometer2"></i> Dashboard</h2>
 <h5 class="text-muted mb-0" id="live-date" style="background:rgba(255,255,255,0.7); padding:6px 14px; border-radius:20px; backdrop-filter:blur(6px);">{{ today.strftime('%B %d, %Y') }}</h5>
@@ -36,7 +226,6 @@ document.getElementById('live-date').innerText = new Date().toLocaleDateString('
 }
 updatePHDate();
 </script>
-
 <div class="row mb-4">
 <div class="col-6 col-md-3 mb-3 fade-in fade-in-1">
 <div class="card card-stat card-total text-white shadow-sm h-100">
@@ -75,7 +264,6 @@ updatePHDate();
 </div>
 </div>
 </div>
-
 <div class="row g-3">
 <div class="col-md-8">
 <div class="card card-recent h-100">
@@ -120,7 +308,6 @@ updatePHDate();
 </div>
 </div>
 </div>
-
 <div class="col-md-4">
 <div class="card card-quick h-100">
 <div class="card-header">
@@ -143,14 +330,18 @@ updatePHDate();
 {% block scripts %}
 <script>
 document.querySelectorAll('.count').forEach(el=>{
-  let target = parseInt(el.getAttribute('data-target'))||0;
-  let count=0;
-  let step = Math.ceil(target/20) || 1;
-  let timer = setInterval(()=>{
-    count+=step;
-    if(count>=target){ el.textContent=target; clearInterval(timer); }
-    else { el.textContent=count; }
-  },30);
+let target = parseInt(el.getAttribute('data-target'))||0;
+let count=0;
+let step = Math.ceil(target/20) || 1;
+let timer = setInterval(()=>{
+count+=step;
+if(count>=target){
+el.textContent=target;
+clearInterval(timer);
+} else {
+el.textContent=count;
+}
+},30);
 });
 </script>
 {% endblock %}
