@@ -25,12 +25,10 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
-
 LATE_CUTOFF = "07:30:00"
 LATE_CUTOFF_PM = "13:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
 GRADE_LEVEL = "Grade 6"
-
 IPROG_API_TOKEN = os.environ.get("IPROG_API_TOKEN", "YOUR_IPROG_API_TOKEN_HERE")
 IPROG_API_URL = "https://sms.iprogtech.com/api/v1/sms_messages"
 IS_SQLITE = False
@@ -111,7 +109,6 @@ def get_db():
     db = getattr(g, '_database', None)
     if db is not None:
         return db
-
     url = os.environ.get('DATABASE_URL')
     if url:
         if url.startswith("postgres://"):
@@ -126,7 +123,6 @@ def get_db():
             print(f"❌ CRITICAL POSTGRES ERROR: {e}")
             print("❌ WILL NOT FALLBACK TO SQLITE ON RENDER")
             raise e
-
     IS_SQLITE = True
     print("⚠️ LOCAL MODE: USING SQLITE qr_attendance.db")
     db = g._database = get_sqlite_db()
@@ -522,84 +518,110 @@ def scanner():
 
 @app.route('/scan', methods=['POST'])
 def scan():
-    data = request.get_json()
-    student_id = data.get('student_id')
-    if not student_id:
-        student_id = data.get('qr_data')
-    scan_type = data.get('scan_type', 'in')
-    if scan_type:
-        scan_type = scan_type.lower()
-    now = get_ph_datetime()
-    today_str = get_ph_date().isoformat()
-    cur_time_24 = now.strftime("%H:%M:%S")
-    cur_time_12 = now.strftime("%I:%M:%S %p")
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT * FROM students WHERE student_id=%s", [student_id])
-    student = cur.fetchone()
-    if not student:
-        return jsonify({'status': 'error', 'message': 'Student not found'})
-    cur.execute("SELECT * FROM attendance WHERE student_id=%s AND date=%s", (student_id, today_str))
-    record = cur.fetchone()
-    if record:
-        last_time_str = None
-        if record.get('time_out_pm'):
-            last_time_str = record.get('time_out_pm')
-        elif record.get('time_in_pm'):
-            last_time_str = record.get('time_in_pm')
-        elif record.get('time_out_am'):
-            last_time_str = record.get('time_out_am')
-        elif record.get('time_in_am'):
-            last_time_str = record.get('time_in_am')
-        if last_time_str:
-            try:
-                last_dt = datetime.strptime(f"{today_str} {last_time_str}", "%Y-%m-%d %H:%M:%S")
-                last_dt = last_dt.replace(tzinfo=PH_TZ)
-                diff = (now - last_dt).total_seconds()
-                if diff < 60:
-                    return jsonify({'status': 'error', 'message': f'{student["name"]} already scanned {int(diff)}s ago. Wait 60s.'})
-            except:
-                pass
+    try:
+        if not session.get('logged_in'):
+            return jsonify({'status': 'error', 'message': 'Session expired. Please login again.'}), 401
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({'status': 'error', 'message': 'Invalid request. No JSON data.'}), 400
+        student_id = data.get('student_id')
+        if not student_id:
+            student_id = data.get('qr_data')
+        if not student_id:
+            return jsonify({'status': 'error', 'message': 'No student ID provided'}), 400
+        student_id = str(student_id).strip()
+        scan_type = str(data.get('scan_type', 'in')).lower().strip()
+        now = get_ph_datetime()
+        today_str = get_ph_date().isoformat()
+        cur_time_24 = now.strftime("%H:%M:%S")
+        cur_time_12 = now.strftime("%I:%M:%S %p")
+        db = get_db()
+        cur = db.cursor()
+        cur.execute("SELECT * FROM students WHERE student_id=%s", [student_id])
+        student = cur.fetchone()
+        if not student:
+            return jsonify({'status': 'error', 'message': f'Student ID {student_id} not found'}), 404
+        cur.execute("SELECT * FROM attendance WHERE student_id=%s AND date=%s", (student_id, today_str))
+        record = cur.fetchone()
+        if record:
+            last_time_str = None
+            if record.get('time_out_pm'):
+                last_time_str = record.get('time_out_pm')
+            elif record.get('time_in_pm'):
+                last_time_str = record.get('time_in_pm')
+            elif record.get('time_out_am'):
+                last_time_str = record.get('time_out_am')
+            elif record.get('time_in_am'):
+                last_time_str = record.get('time_in_am')
+            if last_time_str:
+                try:
+                    last_dt = datetime.strptime(f"{today_str} {last_time_str}", "%Y-%m-%d %H:%M:%S")
+                    last_dt = last_dt.replace(tzinfo=PH_TZ)
+                    diff = (now - last_dt).total_seconds()
+                    if diff < 60:
+                        return jsonify({'status': 'error', 'message': f"{student['name']} already scanned {int(diff)}s ago. Wait 60s."})
+                except:
+                    pass
         if scan_type == 'in':
             if not record:
                 status = 'Late' if cur_time_24 > LATE_CUTOFF else 'Present'
                 cur.execute("INSERT INTO attendance(student_id, date, time_in, time_in_am, status, scanned_by) VALUES(%s,%s,%s,%s,%s,%s)", (student_id, today_str, cur_time_24, cur_time_24, status, session.get('username','system')))
                 db.commit()
                 message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
-                send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+                try:
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                except:
+                    pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-            if not record['time_in_am']:
+            if not record.get('time_in_am'):
                 status = 'Late' if cur_time_24 > LATE_CUTOFF else 'Present'
                 cur.execute("UPDATE attendance SET time_in_am=%s, time_in=%s, status=%s WHERE id=%s", (cur_time_24, cur_time_24, status, record['id']))
                 db.commit()
                 message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
-                send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+                try:
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                except:
+                    pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-            if record['time_out_am'] and not record['time_in_pm']:
+            if record.get('time_out_am') and not record.get('time_in_pm'):
                 cur.execute("UPDATE attendance SET time_in_pm=%s WHERE id=%s", (cur_time_24, record['id']))
                 db.commit()
                 late_note = " - Late" if cur_time_24 > LATE_CUTOFF_PM else " - Present"
                 message = f"{student['name']} AFTERNOON IN: {cur_time_12}{late_note}"
-                send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+                try:
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                except:
+                    pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-            return jsonify({'status': 'error', 'message': f'{student["name"]} already completed IN today'})
+            return jsonify({'status': 'error', 'message': f"{student['name']} already completed IN today"})
         if scan_type == 'out':
             if not record:
-                return jsonify({'status': 'error', 'message': f'{student["name"]} no AM IN yet. Use TIME IN first.'})
-            if record['time_in_am'] and not record['time_out_am']:
+                return jsonify({'status': 'error', 'message': f"{student['name']} no AM IN yet. Use TIME IN first."})
+            if record.get('time_in_am') and not record.get('time_out_am'):
                 cur.execute("UPDATE attendance SET time_out_am=%s, time_out=%s WHERE id=%s", (cur_time_24, cur_time_24, record['id']))
                 db.commit()
                 message = f"{student['name']} LUNCH OUT: {cur_time_12}"
-                send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+                try:
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                except:
+                    pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-            if record['time_in_pm'] and not record['time_out_pm']:
+            if record.get('time_in_pm') and not record.get('time_out_pm'):
                 cur.execute("UPDATE attendance SET time_out_pm=%s WHERE id=%s", (cur_time_24, record['id']))
                 db.commit()
                 message = f"{student['name']} AFTERNOON OUT: {cur_time_12}"
-                send_iprog_sms(student['parent_contact'], f"{SCHOOL_NAME}: {message}. Thank you.")
+                try:
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                except:
+                    pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
-            return jsonify({'status': 'error', 'message': f'{student["name"]} already completed OUT today'})
-        return jsonify({'status': 'error', 'message': 'Invalid scan type'})
+            return jsonify({'status': 'error', 'message': f"{student['name']} already completed OUT today"})
+        return jsonify({'status': 'error', 'message': 'Invalid scan type'}), 400
+    except Exception as e:
+        print(f"[SCAN ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f'Server error: {str(e)}'}), 500
 
 @app.route('/attendance')
 def attendance():
