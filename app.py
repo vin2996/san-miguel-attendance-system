@@ -356,9 +356,7 @@ def dashboard():
     cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [today_str])
     late_today = cur.fetchone()['c']
     absent_today = 0
-    if present_today == 0:
-        pass
-    else:
+    if present_today!= 0:
         absent_today = total - present_today
     cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status, a.scanned_by FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
     recent = cur.fetchall()
@@ -652,19 +650,18 @@ def reports():
     cur = db.cursor()
     filter_date = get_ph_date().isoformat()
     cur.execute("SELECT COUNT(*) as c FROM students")
-    total = cur.fetchone()['c']
+    row = cur.fetchone()
+    total = row['c'] if row and row['c'] is not None else 0
     cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [filter_date])
-    present = cur.fetchone()['c']
+    row = cur.fetchone()
+    present = row['c'] if row and row['c'] is not None else 0
     cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [filter_date])
-    late = cur.fetchone()['c']
+    row = cur.fetchone()
+    late = row['c'] if row and row['c'] is not None else 0
     absent = total - present
     if absent < 0:
         absent = 0
-    if total == 0:
-        absent = 0
-    attendance_rate = 0
-    if total > 0:
-        attendance_rate = round((present / total) * 100, 1)
+    attendance_rate = round((present / total * 100), 1) if total > 0 else 0
     cur.execute("SELECT date FROM attendance GROUP BY date ORDER BY date DESC LIMIT 7")
     dates = cur.fetchall()
     trend_labels = []
@@ -673,16 +670,18 @@ def reports():
     for d in reversed(dates):
         dd = str(d['date'])
         cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [dd])
-        p = cur.fetchone()['c']
+        r = cur.fetchone()
+        p = r['c'] if r and r['c'] is not None else 0
         trend_labels.append(dd)
         trend_present.append(p)
-        trend_absent.append(total - p if total - p > 0 else 0)
+        trend_absent.append(max(0, total - p))
     cur.execute("SELECT grade_section, COUNT(*) as total_students FROM students GROUP BY grade_section")
     sections = cur.fetchall()
     section_stats = []
     for sec in sections:
-        cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance JOIN students s ON attendance.student_id = students.student_id WHERE attendance.date=%s AND students.grade_section=%s AND attendance.time_in_am IS NOT NULL", [filter_date, sec['grade_section']])
-        sp = cur.fetchone()['c']
+        cur.execute("SELECT COUNT(DISTINCT s.student_id) as c FROM attendance a JOIN students s ON a.student_id = s.student_id WHERE a.date=%s AND s.grade_section=%s AND a.time_in_am IS NOT NULL", [filter_date, sec['grade_section']])
+        r = cur.fetchone()
+        sp = r['c'] if r and r['c'] is not None else 0
         section_stats.append({'section': sec['grade_section'], 'total': sec['total_students'], 'present': sp, 'absent': sec['total_students'] - sp})
     cur.execute("SELECT student_id, name, grade_section FROM students WHERE student_id NOT IN (SELECT student_id FROM attendance WHERE date=%s AND time_in_am IS NOT NULL)", [filter_date])
     absent_list = cur.fetchall()

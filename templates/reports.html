@@ -2,140 +2,140 @@
 {% block title %}Reports - {{ school }}{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-<h4 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Attendance Report for {{ today.strftime('%B %d, %Y') }}</h4>
-{% if session['role'] == 'Admin' %}
-<button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#resetModal">
-<i class="bi bi-trash3"></i> Reset Attendance
-</button>
-{% endif %}
+    <h4 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Attendance Report for {{ filter_date }}</h4>
+    {% if session['role'] == 'Admin' %}
+    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#resetModal">
+        <i class="bi bi-trash3"></i> Reset Attendance
+    </button>
+    {% endif %}
 </div>
 
 <div class="row g-2 mb-3">
-<div class="col-6 col-md-3">
-<div class="card text-bg-primary shadow-sm h-100">
-<div class="card-body py-2">
-<h6 class="mb-1"><i class="bi bi-people-fill"></i> Total</h6>
-<h3 class="fw-bold mb-0">{{ total }}</h3>
-<small>{{ attendance_rate }}% Rate</small>
-</div>
-</div>
-</div>
-<div class="col-6 col-md-3">
-<div class="card text-bg-success shadow-sm h-100">
-<div class="card-body py-2">
-<h6 class="mb-1"><i class="bi bi-person-check-fill"></i> Present</h6>
-<h3 class="fw-bold mb-0">{{ present }}</h3>
-<small>Today</small>
-</div>
-</div>
-</div>
-<div class="col-6 col-md-3">
-<div class="card text-bg-warning shadow-sm h-100">
-<div class="card-body py-2">
-<h6 class="mb-1"><i class="bi bi-clock-fill"></i> Late</h6>
-<h3 class="fw-bold mb-0">{{ late }}</h3>
-<small>Late Today</small>
-</div>
-</div>
-</div>
-<div class="col-6 col-md-3">
-<div class="card text-bg-danger shadow-sm h-100">
-<div class="card-body py-2">
-<h6 class="mb-1"><i class="bi bi-person-x-fill"></i> Absent</h6>
-<h3 class="fw-bold mb-0">{{ absent }}</h3>
-<small>Absent Today</small>
-</div>
-</div>
-</div>
-</div>
-
-<div class="row g-2 mb-3 align-items-stretch">
-<div class="col-md-8">
-<div class="card p-2 shadow-sm h-100">
-<h6 class="mb-2"><i class="bi bi-graph-up"></i> 7-Day Attendance Trend</h6>
-<div style="height:220px;">
-<canvas id="trendChart"></canvas>
-</div>
-</div>
-</div>
-<div class="col-md-4">
-<div class="card p-2 shadow-sm h-100">
-<h6 class="mb-2"><i class="bi bi-pie-chart"></i> Attendance Rate Today</h6>
-<div style="height:220px; display:flex; justify-content:center; align-items:center;">
-<canvas id="rateChart"></canvas>
-</div>
-<div class="mt-2 text-center">
-<span class="badge bg-success">Present {{ present }}</span>
-<span class="badge bg-danger">Absent {{ absent }}</span>
-</div>
-</div>
-</div>
+    <div class="col-6 col-md-3">
+        <div class="card text-bg-primary shadow-sm h-100">
+            <div class="card-body py-2">
+                <h6 class="mb-1"><i class="bi bi-people-fill"></i> Total</h6>
+                <h3 class="fw-bold mb-0">{{ total or 0 }}</h3>
+                <small>{{ attendance_rate or 0 }}% Rate</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-bg-success shadow-sm h-100">
+            <div class="card-body py-2">
+                <h6 class="mb-1"><i class="bi bi-person-check-fill"></i> Present</h6>
+                <h3 class="fw-bold mb-0">{{ present or 0 }}</h3>
+                <small>Today</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-bg-warning shadow-sm h-100">
+            <div class="card-body py-2">
+                <h6 class="mb-1"><i class="bi bi-clock-fill"></i> Late</h6>
+                <h3 class="fw-bold mb-0">{{ late or 0 }}</h3>
+                <small>Late Today</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-bg-danger shadow-sm h-100">
+            <div class="card-body py-2">
+                <h6 class="mb-1"><i class="bi bi-person-x-fill"></i> Absent</h6>
+                <h3 class="fw-bold mb-0">{{ absent or 0 }}</h3>
+                <small>Absent Today</small>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-2 mb-3 align-items-stretch">
-<div class="col-md-6">
-<div class="card p-2 shadow-sm h-100">
-<h6 class="mb-2"><i class="bi bi-building"></i> Breakdown by Grade & Section</h6>
-<div class="table-responsive">
-<table class="table table-sm table-striped mb-0">
-<thead><tr><th>Section</th><th>Total</th><th>Present</th><th>Absent</th></tr></thead>
-<tbody>
-{% for s in section_stats %}
-<tr><td>{{ s.section }}</td><td>{{ s.total }}</td><td><span class="badge bg-success">{{ s.present }}</span></td><td><span class="badge bg-danger">{{ s.absent }}</span></td></tr>
-{% endfor %}
-</tbody>
-</table>
+    <div class="col-md-8">
+        <div class="card p-2 shadow-sm h-100">
+            <h6 class="mb-2"><i class="bi bi-graph-up"></i> 7-Day Attendance Trend</h6>
+            <div style="height:220px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-2 shadow-sm h-100">
+            <h6 class="mb-2"><i class="bi bi-pie-chart"></i> Attendance Rate Today</h6>
+            <div style="height:220px; display:flex; justify-content:center; align-items:center;">
+                <canvas id="rateChart"></canvas>
+            </div>
+            <div class="mt-2 text-center">
+                <span class="badge bg-success">Present {{ present or 0 }}</span>
+                <span class="badge bg-danger">Absent {{ absent or 0 }}</span>
+            </div>
+        </div>
+    </div>
 </div>
-</div>
-</div>
-<div class="col-md-6">
-<div class="card p-2 shadow-sm h-100">
-<h6 class="mb-2"><i class="bi bi-exclamation-triangle"></i> Need Attention Today</h6>
-<ul class="nav nav-tabs nav-tabs-sm" role="tablist">
-<li class="nav-item"><button class="nav-link active py-1" data-bs-toggle="tab" data-bs-target="#absentTab">Absent ({{ absent_list|length }})</button></li>
-<li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#lateTab">Late ({{ late_list|length }})</button></li>
-</ul>
-<div class="tab-content mt-2" style="max-height:200px; overflow-y:auto;">
-<div class="tab-pane fade show active" id="absentTab">
-{% for a in absent_list %}
-<div class="d-flex justify-content-between border-bottom py-1 small"><span>{{ a.name }} <small class="text-muted">({{ a.student_id }})</small></span><small>{{ a.grade_section }}</small></div>
-{% else %}
-<small class="text-muted">No absent today</small>
-{% endfor %}
-</div>
-<div class="tab-pane fade" id="lateTab">
-{% for l in late_list %}
-<div class="d-flex justify-content-between border-bottom py-1 small"><span>{{ l.name }}</span><small class="text-warning">{{ format_time(l.time_in_am) }}</small></div>
-{% else %}
-<small class="text-muted">No late today</small>
-{% endfor %}
-</div>
-</div>
-</div>
-</div>
-</div>
+
+<div class="row g-2 mb-3 align-items-stretch">
+    <div class="col-md-6">
+        <div class="card p-2 shadow-sm h-100">
+            <h6 class="mb-2"><i class="bi bi-building"></i> Breakdown by Grade & Section</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead><tr><th>Section</th><th>Total</th><th>Present</th><th>Absent</th></tr></thead>
+                    <tbody>
+                    {% for s in section_stats %}
+                        <tr><td>{{ s.section }}</td><td>{{ s.total }}</td><td><span class="badge bg-success">{{ s.present }}</span></td><td><span class="badge bg-danger">{{ s.absent }}</span></td></tr>
+                    {% else %}
+                        <tr><td colspan="4" class="text-center text-muted small">No data</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card p-2 shadow-sm h-100">
+            <h6 class="mb-2"><i class="bi bi-exclamation-triangle"></i> Need Attention Today</h6>
+            <ul class="nav nav-tabs nav-tabs-sm" role="tablist">
+                <li class="nav-item"><button class="nav-link active py-1" data-bs-toggle="tab" data-bs-target="#absentTab">Absent ({{ absent_list|length }})</button></li>
+                <li class="nav-item"><button class="nav-link py-1" data-bs-toggle="tab" data-bs-target="#lateTab">Late ({{ late_list|length }})</button></li>
+            </ul>
+            <div class="tab-content mt-2" style="max-height:200px; overflow-y:auto;">
+                <div class="tab-pane fade show active" id="absentTab">
+                    {% for a in absent_list %}
+                    <div class="d-flex justify-content-between border-bottom py-1 small"><span>{{ a.name }} <small class="text-muted">({{ a.student_id }})</small></span><small>{{ a.grade_section }}</small></div>
+                    {% else %}
+                    <small class="text-muted">No absent today</small>
+                    {% endfor %}
+                </div>
+                <div class="tab-pane fade" id="lateTab">
+                    {% for l in late_list %}
+                    <div class="d-flex justify-content-between border-bottom py-1 small"><span>{{ l.name }}</span><small class="text-warning">{{ format_time(l.time_in_am) }}</small></div>
+                    {% else %}
+                    <small class="text-muted">No late today</small>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="resetModal" tabindex="-1">
-<div class="modal-dialog">
-<div class="modal-content">
-<div class="modal-header bg-danger text-white">
-<h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirm Reset</h5>
-<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-</div>
-<div class="modal-body">
-Are you sure you want to delete <b>ALL</b> attendance records? This cannot be undone.
-</div>
-<div class="modal-footer">
-<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-<form action="{{ url_for('reset_attendance') }}" method="POST">
-<button type="submit" class="btn btn-danger">Yes, Reset All</button>
-</form>
-</div>
-</div>
-</div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Confirm Reset</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">Are you sure you want to delete <b>ALL</b> attendance records? This cannot be undone.</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('reset_attendance') }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Yes, Reset All</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
@@ -143,14 +143,23 @@ const trendLabels = {{ trend_labels|tojson }};
 const trendPresent = {{ trend_present|tojson }};
 const trendAbsent = {{ trend_absent|tojson }};
 new Chart(document.getElementById('trendChart'), {
-  type: 'line',
-  data: { labels: trendLabels, datasets: [{ label: 'Present', data: trendPresent, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.2)', tension: 0.3, fill: true }, { label: 'Absent', data: trendAbsent, borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,0.1)', tension: 0.3, fill: true }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    type: 'line',
+    data: {
+        labels: trendLabels,
+        datasets: [
+            { label: 'Present', data: trendPresent, borderColor: '#198754', backgroundColor: 'rgba(25,135,84,0.2)', tension: 0.3, fill: true },
+            { label: 'Absent', data: trendAbsent, borderColor: '#dc3545', backgroundColor: 'rgba(220,53,69,0.1)', tension: 0.3, fill: true }
+        ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
 });
 new Chart(document.getElementById('rateChart'), {
-  type: 'doughnut',
-  data: { labels: ['Present','Absent'], datasets: [{ data: [{{ present }}, {{ absent }}], backgroundColor: ['#198754','#dc3545'] }] },
-  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    type: 'doughnut',
+    data: {
+        labels: ['Present','Absent'],
+        datasets: [{ data: [{{ present or 0 }}, {{ absent or 0 }}], backgroundColor: ['#198754','#dc3545'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
 });
 </script>
 {% endblock %}
