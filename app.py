@@ -110,28 +110,25 @@ def get_db():
     global IS_SQLITE
     db = getattr(g, '_database', None)
     if db is not None:
-        try:
-            if not IS_SQLITE and db.closed == 0:
-                return db
-            if IS_SQLITE:
-                return db
-        except:
-            try:
-                return db
-            except:
-                pass
+        return db
+
     url = os.environ.get('DATABASE_URL')
     if url:
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
         try:
-            if url.startswith("postgres://"):
-                url = url.replace("postgres://", "postgresql://", 1)
-            pg_db = psycopg2.connect(url, sslmode='require', cursor_factory=RealDictCursor, connect_timeout=10, keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=5)
+            pg_db = psycopg2.connect(url, sslmode='require', cursor_factory=RealDictCursor, connect_timeout=15)
             IS_SQLITE = False
+            print("✅ CONNECTED TO POSTGRES - DATA WILL PERSIST")
             g._database = pg_db
             return pg_db
         except Exception as e:
-            print(f"Postgres failed, fallback to SQLite: {e}")
+            print(f"❌ CRITICAL POSTGRES ERROR: {e}")
+            print("❌ WILL NOT FALLBACK TO SQLITE ON RENDER")
+            raise e
+
     IS_SQLITE = True
+    print("⚠️ LOCAL MODE: USING SQLITE qr_attendance.db")
     db = g._database = get_sqlite_db()
     return db
 
@@ -187,11 +184,12 @@ def init_db():
             except:
                 pass
         db.commit()
+        print(f"✅ DB INIT DONE - IS_SQLITE={IS_SQLITE}")
 
 try:
     init_db()
 except Exception as e:
-    print(f"DB Init: {e}")
+    print(f"DB Init Error: {e}")
 
 def generate_id_card(student):
     W, H = 700, 1050
