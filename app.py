@@ -9,6 +9,7 @@ import requests
 import zipfile
 import io
 from PIL import Image, ImageDraw, ImageFont
+from werkzeug.utils import secure_filename
 
 try:
     from dotenv import load_dotenv
@@ -39,6 +40,23 @@ UPLOAD_FOLDER = os.path.join('static', 'uploads')
 QR_FOLDER = os.path.join('static', 'qr_codes')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(QR_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_student_photo(file, student_id):
+    if not file or file.filename == '':
+        return None
+    if not allowed_file(file.filename):
+        return None
+    ext = os.path.splitext(secure_filename(file.filename))[1].lower()
+    if not ext:
+        ext = '.jpg'
+    filename = f"{secure_filename(student_id)}{ext}"
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(save_path)
+    return filename
 
 def send_iprog_sms(phone_number, message):
     try:
@@ -51,10 +69,8 @@ def send_iprog_sms(phone_number, message):
             p = "63" + p[1:]
         payload = {"api_token": IPROG_API_TOKEN, "phone_number": p, "message": message, "sms_provider": 2}
         r = requests.post(IPROG_API_URL, json=payload, timeout=15)
-        print(f"[IPROG] TO:{p} STATUS:{r.status_code} RESP:{r.text}")
         return r.status_code == 200
-    except Exception as e:
-        print(f"[IPROG FAILED] {e}")
+    except Exception:
         return False
 
 def get_ph_date():
@@ -119,15 +135,11 @@ def get_db():
         try:
             pg_db = psycopg2.connect(url, sslmode='require', cursor_factory=RealDictCursor, connect_timeout=15)
             IS_SQLITE = False
-            print("✅ CONNECTED TO POSTGRES - DATA WILL PERSIST")
             g._database = pg_db
             return pg_db
         except Exception as e:
-            print(f"❌ CRITICAL POSTGRES ERROR: {e}")
-            print("❌ WILL NOT FALLBACK TO SQLITE ON RENDER")
             raise e
     IS_SQLITE = True
-    print("⚠️ LOCAL MODE: USING SQLITE qr_attendance.db")
     db = g._database = get_sqlite_db()
     return db
 
@@ -172,7 +184,6 @@ def init_db():
             except:
                 pass
         db.commit()
-        print(f"✅ DB INIT DONE - IS_SQLITE={IS_SQLITE}")
 
 try:
     init_db()
@@ -215,7 +226,6 @@ def generate_id_card(student):
 
     draw.rectangle([0, 0, W, 110], fill='#0d47a1')
     draw.text((W//2, 55), SCHOOL_NAME.upper(), fill='white', font=font_header, anchor='mm')
-
     draw.rectangle([0, 110, W, 155], fill='#ffca28')
     draw.text((W//2, 132), GRADE_LEVEL, fill='black', font=font_small, anchor='mm')
 
@@ -225,7 +235,8 @@ def generate_id_card(student):
         p1 = os.path.join(UPLOAD_FOLDER, str(photo_file))
         p2 = os.path.join('static', str(photo_file))
         p3 = str(photo_file)
-        for pp in [p1, p2, p3]:
+        p4 = os.path.join(UPLOAD_FOLDER, os.path.basename(str(photo_file)))
+        for pp in [p1, p2, p3, p4]:
             if os.path.exists(pp):
                 img_path = pp
                 break
@@ -257,7 +268,6 @@ def generate_id_card(student):
     qr_img = qrcode.make(qr_data)
     qr_img = qr_img.resize((320, 320))
     card.paste(qr_img, ((W-320)//2, 660))
-
     draw.text((W//2, 1010), "SCAN FOR ATTENDANCE", fill='#757575', font=font_qr, anchor='mm')
     return card
 
@@ -485,20 +495,18 @@ def register_student():
     student_name = None
     student_id = None
     if request.method == 'POST':
-        student_id = request.form['student_id']
-        name = request.form['name']
-        section = request.form['grade_section']
-        pname = request.form['parent_name']
-        pcontact = request.form['parent_contact']
+        student_id = request.form['student_id'].strip()
+        name = request.form['name'].strip()
+        section = request.form['grade_section'].strip()
+        pname = request.form['parent_name'].strip()
+        pcontact = request.form['parent_contact'].strip()
         photo_filename = None
-        if 'photo' in request.files:
-            file = request.files['photo']
-            if file and file.filename!= '':
-                ext = os.path.splitext(file.filename)[1]
-                photo_filename = f"{student_id}{ext}"
-                save_path = os.path.join(UPLOAD_FOLDER, photo_filename)
-                file.save(save_path)
-        os.makedirs('static/qr_codes', exist_ok=True)
+        file = request.files.get('photo')
+        if file:
+            saved = save_student_photo(file, student_id)
+            if saved:
+                photo_filename = saved
+        os.makedirs(QR_FOLDER, exist_ok=True)
         qr = qrcode.make(student_id)
         qr_filename = f"qr_codes/{student_id}.png"
         qr_full_path = f"static/{qr_filename}"
@@ -715,6 +723,14 @@ def delete_student(student_id):
         qr_file = f"static/qr_codes/{student_id}.png"
         if os.path.exists(qr_file):
             os.remove(qr_file)
+        cur.execute("SELECT * FROM students WHERE student_id=%s", [student_id])
+        if not cur.fetchone():
+            up_file = os.path.join(UPLOAD_FOLDER, f"{student_id}.png")
+            if os.path.exists(up_file):
+                try:
+                    os.remove(up_file)
+                except:
+                    pass
         flash(f'Student {student_id} deleted successfully.', 'success')
     except Exception as e:
         db.rollback()
@@ -735,23 +751,21 @@ def edit_student(student_id):
     cur = db.cursor()
     cur.execute("SELECT * FROM students WHERE student_id =%s", (student_id,))
     student = cur.fetchone()
+    if not student:
+        flash('Student not found', 'danger')
+        return redirect(url_for('students'))
     if request.method == 'POST':
-        name = request.form['name']
-        section = request.form['grade_section']
-        pname = request.form['parent_name']
-        pcontact = request.form['parent_contact']
-        photo_filename = student.get('photo') if student else None
-        if 'photo' in request.files:
-            file = request.files['photo']
-            if file and file.filename!= '':
-                ext = os.path.splitext(file.filename)[1]
-                photo_filename = f"{student_id}{ext}"
-                save_path = os.path.join(UPLOAD_FOLDER, photo_filename)
-                file.save(save_path)
-        if photo_filename:
-            cur.execute("UPDATE students SET name=%s, grade_section=%s, parent_name=%s, parent_contact=%s, photo=%s WHERE student_id=%s", (name, section, pname, pcontact, photo_filename, student_id))
-        else:
-            cur.execute("UPDATE students SET name=%s, grade_section=%s, parent_name=%s, parent_contact=%s WHERE student_id=%s", (name, section, pname, pcontact, student_id))
+        name = request.form['name'].strip()
+        section = request.form['grade_section'].strip()
+        pname = request.form['parent_name'].strip()
+        pcontact = request.form['parent_contact'].strip()
+        photo_filename = student.get('photo')
+        file = request.files.get('photo')
+        if file and file.filename!= '':
+            saved = save_student_photo(file, student_id)
+            if saved:
+                photo_filename = saved
+        cur.execute("UPDATE students SET name=%s, grade_section=%s, parent_name=%s, parent_contact=%s, photo=%s WHERE student_id=%s", (name, section, pname, pcontact, photo_filename, student_id))
         db.commit()
         flash(f'Student {name} updated successfully.', 'success')
         return redirect(url_for('students'))
