@@ -4,10 +4,11 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import sqlite3
-from datetime import datetime, date, timezone, timedelta
+from datetime import datetime, timezone, timedelta
 import requests
 import zipfile
 import io
+import base64
 from PIL import Image, ImageDraw, ImageFont
 from werkzeug.utils import secure_filename
 
@@ -28,7 +29,6 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = 'superdupersecretkey123'
-
 LATE_CUTOFF = "07:30:00"
 LATE_CUTOFF_PM = "13:00:00"
 SCHOOL_NAME = "San Miguel Elementary School"
@@ -40,38 +40,6 @@ UPLOAD_FOLDER = os.path.join('static', 'uploads')
 QR_FOLDER = os.path.join('static', 'qr_codes')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(QR_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def save_student_photo(file, student_id):
-    if not file or file.filename == '':
-        return None
-    if not allowed_file(file.filename):
-        return None
-    ext = os.path.splitext(secure_filename(file.filename))[1].lower()
-    if not ext:
-        ext = '.jpg'
-    filename = f"{secure_filename(student_id)}{ext}"
-    save_path = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(save_path)
-    return filename
-
-def send_iprog_sms(phone_number, message):
-    try:
-        if not phone_number:
-            return False
-        p = phone_number.strip()
-        if p.startswith("+"):
-            p = p[1:]
-        if p.startswith("0"):
-            p = "63" + p[1:]
-        payload = {"api_token": IPROG_API_TOKEN, "phone_number": p, "message": message, "sms_provider": 2}
-        r = requests.post(IPROG_API_URL, json=payload, timeout=15)
-        return r.status_code == 200
-    except Exception:
-        return False
 
 def get_ph_date():
     return datetime.now(PH_TZ).date()
@@ -79,13 +47,13 @@ def get_ph_date():
 def get_ph_datetime():
     return datetime.now(PH_TZ)
 
-def format_time_12hr(time_24):
-    if not time_24:
+def format_time_12hr(t):
+    if not t:
         return ""
     try:
-        return datetime.strptime(time_24, "%H:%M:%S").strftime("%I:%M:%S %p")
+        return datetime.strptime(t, "%H:%M:%S").strftime("%I:%M:%S %p")
     except:
-        return time_24
+        return t
 
 def dict_factory(cursor, row):
     d = {}
@@ -158,29 +126,22 @@ def init_db():
         cur = db.cursor()
         if IS_SQLITE:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT "Teacher", status TEXT DEFAULT "pending")')
-            cur.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT, photo TEXT)')
+            cur.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT, photo TEXT, photo_data TEXT)')
             cur.execute('CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT "Present", scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)')
             cur.execute('CREATE TABLE IF NOT EXISTS teachers (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
             cur.execute("SELECT * FROM users WHERE username='admin'")
             if not cur.fetchone():
                 cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
-            try:
-                cur.execute("SELECT photo FROM students LIMIT 1")
-            except:
-                try:
-                    cur.execute("ALTER TABLE students ADD COLUMN photo TEXT")
-                except:
-                    pass
         else:
             cur.execute('CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT \'Teacher\', status TEXT DEFAULT \'pending\')')
-            cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT, photo TEXT)')
-            cur.execute('''CREATE TABLE IF NOT EXISTS attendance ( id SERIAL PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT 'Present', scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)''')
+            cur.execute('CREATE TABLE IF NOT EXISTS students (id SERIAL PRIMARY KEY, student_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, grade_section TEXT NOT NULL, parent_name TEXT, parent_contact TEXT, qr_code_path TEXT, photo TEXT, photo_data TEXT)')
+            cur.execute('CREATE TABLE IF NOT EXISTS attendance ( id SERIAL PRIMARY KEY, student_id TEXT NOT NULL, date TEXT NOT NULL, time_in TEXT, time_out TEXT, status TEXT DEFAULT \'Present\', scanned_by TEXT, time_in_am TEXT, time_out_am TEXT, time_in_pm TEXT, time_out_pm TEXT)')
             cur.execute('CREATE TABLE IF NOT EXISTS teachers (id SERIAL PRIMARY KEY, teacher_id TEXT UNIQUE NOT NULL, name TEXT NOT NULL, subject TEXT, contact TEXT)')
             cur.execute("SELECT * FROM users WHERE username='admin'")
             if not cur.fetchone():
                 cur.execute("INSERT INTO users (username, password, role, status) VALUES ('admin', 'admin123', 'Admin', 'approved')")
             try:
-                cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS photo TEXT")
+                cur.execute("ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_data TEXT")
             except:
                 pass
         db.commit()
@@ -190,86 +151,94 @@ try:
 except Exception as e:
     print(f"DB Init Error: {e}")
 
+def send_iprog_sms(phone_number, message):
+    try:
+        if not phone_number:
+            return False
+        p = phone_number.strip()
+        if p.startswith("+"):
+            p = p[1:]
+        if p.startswith("0"):
+            p = "63" + p[1:]
+        payload = {"api_token": IPROG_API_TOKEN, "phone_number": p, "message": message, "sms_provider": 2}
+        r = requests.post(IPROG_API_URL, json=payload, timeout=15)
+        return r.status_code == 200
+    except Exception:
+        return False
+
 def generate_id_card(student):
     W, H = 700, 1050
     card = Image.new('RGB', (W, H), '#ffffff')
     draw = ImageDraw.Draw(card)
-
     def get_font(size, bold=False):
-        font_paths = []
-        if bold:
-            font_paths = [
-                "arialbd.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                "DejaVuSans-Bold.ttf"
-            ]
-        else:
-            font_paths = [
-                "arial.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "DejaVuSans.ttf"
-            ]
-        for fp in font_paths:
+        paths = ["arialbd.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"] if bold else ["arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+        for fp in paths:
             try:
                 return ImageFont.truetype(fp, size)
             except:
                 continue
         return ImageFont.load_default()
-
     font_header = get_font(26, True)
     font_name = get_font(32, True)
     font_detail = get_font(24, False)
     font_small = get_font(20, False)
     font_qr = get_font(18, True)
-
     draw.rectangle([0, 0, W, 110], fill='#0d47a1')
     draw.text((W//2, 55), SCHOOL_NAME.upper(), fill='white', font=font_header, anchor='mm')
     draw.rectangle([0, 110, W, 155], fill='#ffca28')
     draw.text((W//2, 132), GRADE_LEVEL, fill='black', font=font_small, anchor='mm')
-
+    photo_data = student.get('photo_data')
     photo_file = student.get('photo')
-    img_path = None
-    if photo_file:
-        p1 = os.path.join(UPLOAD_FOLDER, str(photo_file))
-        p2 = os.path.join('static', str(photo_file))
-        p3 = str(photo_file)
-        p4 = os.path.join(UPLOAD_FOLDER, os.path.basename(str(photo_file)))
-        for pp in [p1, p2, p3, p4]:
+    p_img = None
+    if photo_data:
+        try:
+            decoded = base64.b64decode(photo_data)
+            p_img = Image.open(io.BytesIO(decoded)).convert('RGB')
+        except:
+            p_img = None
+    if not p_img and photo_file:
+        for pp in [os.path.join(UPLOAD_FOLDER, str(photo_file)), os.path.join('static', str(photo_file))]:
             if os.path.exists(pp):
-                img_path = pp
-                break
-
+                try:
+                    p_img = Image.open(pp).convert('RGB')
+                    break
+                except:
+                    pass
     photo_size = 280
     photo_x = (W - photo_size)//2
     photo_y = 185
-
-    if img_path:
-        try:
-            p_img = Image.open(img_path).convert('RGB')
-            p_img = p_img.resize((photo_size, photo_size))
-            mask = Image.new('L', (photo_size, photo_size), 0)
-            ImageDraw.Draw(mask).ellipse((0, 0, photo_size, photo_size), fill=255)
-            card.paste(p_img, (photo_x, photo_y), mask)
-            draw.ellipse([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], outline='#0d47a1', width=4)
-        except:
-            draw.rectangle([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], fill='#e0e0e0')
-            draw.text((W//2, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail, anchor='mm')
+    if p_img:
+        p_img = p_img.resize((photo_size, photo_size))
+        mask = Image.new('L', (photo_size, photo_size), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, photo_size, photo_size), fill=255)
+        card.paste(p_img, (photo_x, photo_y), mask)
+        draw.ellipse([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], outline='#0d47a1', width=4)
     else:
         draw.rectangle([photo_x, photo_y, photo_x+photo_size, photo_y+photo_size], fill='#e0e0e0')
         draw.text((W//2, photo_y+photo_size//2), "NO PHOTO", fill='#616161', font=font_detail, anchor='mm')
-
     draw.text((W//2, 530), str(student.get('name','')).upper(), fill='#0a2a5e', font=font_name, anchor='mm')
     draw.text((W//2, 575), f"ID: {student.get('student_id','')}", fill='#424242', font=font_detail, anchor='mm')
     draw.text((W//2, 610), f"{student.get('grade_section','')}", fill='#424242', font=font_detail, anchor='mm')
-
     qr_data = str(student.get('student_id',''))
     qr_img = qrcode.make(qr_data)
     qr_img = qr_img.resize((320, 320))
     card.paste(qr_img, ((W-320)//2, 660))
     draw.text((W//2, 1010), "SCAN FOR ATTENDANCE", fill='#757575', font=font_qr, anchor='mm')
     return card
+
+@app.route('/student_photo/<student_id>')
+def student_photo(student_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT photo_data FROM students WHERE student_id=%s", [student_id])
+    s = cur.fetchone()
+    if s and s.get('photo_data'):
+        try:
+            img_bytes = base64.b64decode(s['photo_data'])
+            return send_file(io.BytesIO(img_bytes), mimetype='image/jpeg')
+        except:
+            pass
+    return redirect(url_for('static', filename='default.png'))
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -287,7 +256,6 @@ def login():
             session['logged_in'] = True
             session['username'] = user['username']
             session['role'] = user['role']
-            flash(f'Welcome back, {user["username"]}!', 'success')
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid Username or Password', 'danger')
@@ -365,17 +333,15 @@ def dashboard():
     present_today = cur.fetchone()['c']
     cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [today_str])
     late_today = cur.fetchone()['c']
-    absent_today = 0
-    if present_today!= 0:
-        absent_today = total - present_today
-    cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status, a.scanned_by FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
+    absent_today = total - present_today if present_today!=0 else 0
+    cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
     recent = cur.fetchall()
     return render_template('dashboard.html', total=total, present=present_today, late=late_today, absent=absent_today, recent=recent, school=SCHOOL_NAME, grade=GRADE_LEVEL, today=get_ph_date(), format_time=format_time_12hr, late_am=LATE_CUTOFF, late_pm=LATE_CUTOFF_PM)
 
 @app.route('/students')
 def students():
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
-        flash('Unauthorized! Admin or Teacher access only.', 'danger')
+        flash('Unauthorized!', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
@@ -391,14 +357,11 @@ def students():
     absent_today = total - present_today
     if absent_today < 0:
         absent_today = 0
-    if total == 0:
-        absent_today = 0
     return render_template('students.html', students=students, total=total, present_today=present_today, absent_today=absent_today, late_today=late_today, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
 @app.route('/download_qr/<student_id>')
 def download_qr(student_id):
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
-        flash('Unauthorized! Admin or Teacher access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
@@ -416,7 +379,6 @@ def download_qr(student_id):
 @app.route('/download_all_qr')
 def download_all_qr():
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
-        flash('Unauthorized! Admin or Teacher access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
@@ -449,7 +411,6 @@ def teachers():
 @app.route('/edit_teacher/<int:id>', methods=['GET', 'POST'])
 def edit_teacher(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized! Admin access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
@@ -460,36 +421,26 @@ def edit_teacher(id):
         name = request.form['name']
         subject = request.form['subject']
         contact = request.form['contact']
-        try:
-            cur.execute("UPDATE teachers SET teacher_id=%s, name=%s, subject=%s, contact=%s WHERE id=%s", (teacher_id, name, subject, contact, id))
-            db.commit()
-            flash(f'Teacher {name} updated successfully.', 'success')
-            return redirect(url_for('teachers'))
-        except:
-            db.rollback()
-            flash('Error: Teacher ID already exists', 'danger')
+        cur.execute("UPDATE teachers SET teacher_id=%s, name=%s, subject=%s, contact=%s WHERE id=%s", (teacher_id, name, subject, contact, id))
+        db.commit()
+        flash(f'Teacher {name} updated', 'success')
+        return redirect(url_for('teachers'))
     return render_template('edit_teacher.html', teacher=teacher, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
 @app.route('/delete_teacher/<int:id>', methods=['POST'])
 def delete_teacher(id):
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized! Admin access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
-    try:
-        cur.execute("DELETE FROM teachers WHERE id =%s", (id,))
-        db.commit()
-        flash('Teacher deleted successfully.', 'success')
-    except Exception as e:
-        db.rollback()
-        flash(f'Error deleting teacher: {e}', 'danger')
+    cur.execute("DELETE FROM teachers WHERE id =%s", (id,))
+    db.commit()
     return redirect(url_for('teachers'))
 
 @app.route('/register_student', methods=['GET', 'POST'])
 def register_student():
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Admin access only - Teachers cannot add students', 'danger')
+        flash('Admin access only', 'danger')
         return redirect(url_for('students'))
     qr_path = None
     student_name = None
@@ -501,20 +452,32 @@ def register_student():
         pname = request.form['parent_name'].strip()
         pcontact = request.form['parent_contact'].strip()
         photo_filename = None
+        photo_data_b64 = None
         file = request.files.get('photo')
-        if file:
-            saved = save_student_photo(file, student_id)
-            if saved:
-                photo_filename = saved
-        os.makedirs(QR_FOLDER, exist_ok=True)
+        if file and file.filename!= '':
+            try:
+                file_bytes = file.read()
+                photo_data_b64 = base64.b64encode(file_bytes).decode('utf-8')
+                ext = os.path.splitext(secure_filename(file.filename))[1].lower() or '.jpg'
+                photo_filename = f"{secure_filename(student_id)}{ext}"
+                try:
+                    with open(os.path.join(UPLOAD_FOLDER, photo_filename), 'wb') as f:
+                        f.write(file_bytes)
+                except:
+                    pass
+            except Exception as e:
+                print(f"Photo read error: {e}")
         qr = qrcode.make(student_id)
         qr_filename = f"qr_codes/{student_id}.png"
         qr_full_path = f"static/{qr_filename}"
-        qr.save(qr_full_path)
+        try:
+            qr.save(qr_full_path)
+        except:
+            pass
         db = get_db()
         cur = db.cursor()
         try:
-            cur.execute("INSERT INTO students(student_id, name, grade_section, parent_name, parent_contact, qr_code_path, photo) VALUES(%s,%s,%s,%s,%s,%s,%s)", (student_id, name, section, pname, pcontact, qr_filename, photo_filename))
+            cur.execute("INSERT INTO students(student_id, name, grade_section, parent_name, parent_contact, qr_code_path, photo, photo_data) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)", (student_id, name, section, pname, pcontact, qr_filename, photo_filename, photo_data_b64))
             db.commit()
             flash('Student Registered Successfully', 'success')
             qr_path = qr_filename
@@ -534,15 +497,13 @@ def scanner():
 def scan():
     try:
         if not session.get('logged_in'):
-            return jsonify({'status': 'error', 'message': 'Session expired. Please login again.'}), 401
+            return jsonify({'status': 'error', 'message': 'Session expired'}), 401
         data = request.get_json(silent=True)
         if not data:
-            return jsonify({'status': 'error', 'message': 'Invalid request. No JSON data.'}), 400
-        student_id = data.get('student_id')
+            return jsonify({'status': 'error', 'message': 'No JSON'}), 400
+        student_id = data.get('student_id') or data.get('qr_data')
         if not student_id:
-            student_id = data.get('qr_data')
-        if not student_id:
-            return jsonify({'status': 'error', 'message': 'No student ID provided'}), 400
+            return jsonify({'status': 'error', 'message': 'No student ID'}), 400
         student_id = str(student_id).strip()
         scan_type = str(data.get('scan_type', 'in')).lower().strip()
         now = get_ph_datetime()
@@ -557,25 +518,6 @@ def scan():
             return jsonify({'status': 'error', 'message': f'Student ID {student_id} not found'}), 404
         cur.execute("SELECT * FROM attendance WHERE student_id=%s AND date=%s", (student_id, today_str))
         record = cur.fetchone()
-        if record:
-            last_time_str = None
-            if record.get('time_out_pm'):
-                last_time_str = record.get('time_out_pm')
-            elif record.get('time_in_pm'):
-                last_time_str = record.get('time_in_pm')
-            elif record.get('time_out_am'):
-                last_time_str = record.get('time_out_am')
-            elif record.get('time_in_am'):
-                last_time_str = record.get('time_in_am')
-            if last_time_str:
-                try:
-                    last_dt = datetime.strptime(f"{today_str} {last_time_str}", "%Y-%m-%d %H:%M:%S")
-                    last_dt = last_dt.replace(tzinfo=PH_TZ)
-                    diff = (now - last_dt).total_seconds()
-                    if diff < 60:
-                        return jsonify({'status': 'error', 'message': f"{student['name']} already scanned {int(diff)}s ago. Wait 60s."})
-                except:
-                    pass
         if scan_type == 'in':
             if not record:
                 status = 'Late' if cur_time_24 > LATE_CUTOFF else 'Present'
@@ -583,7 +525,7 @@ def scan():
                 db.commit()
                 message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
                 try:
-                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
                     pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
@@ -593,7 +535,7 @@ def scan():
                 db.commit()
                 message = f"{student['name']} MORNING IN: {cur_time_12} - {status}"
                 try:
-                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
                     pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
@@ -603,20 +545,20 @@ def scan():
                 late_note = " - Late" if cur_time_24 > LATE_CUTOFF_PM else " - Present"
                 message = f"{student['name']} AFTERNOON IN: {cur_time_12}{late_note}"
                 try:
-                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
                     pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
             return jsonify({'status': 'error', 'message': f"{student['name']} already completed IN today"})
         if scan_type == 'out':
             if not record:
-                return jsonify({'status': 'error', 'message': f"{student['name']} no AM IN yet. Use TIME IN first."})
+                return jsonify({'status': 'error', 'message': f"{student['name']} no AM IN yet"})
             if record.get('time_in_am') and not record.get('time_out_am'):
                 cur.execute("UPDATE attendance SET time_out_am=%s, time_out=%s WHERE id=%s", (cur_time_24, cur_time_24, record['id']))
                 db.commit()
                 message = f"{student['name']} LUNCH OUT: {cur_time_12}"
                 try:
-                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
                     pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
@@ -625,14 +567,13 @@ def scan():
                 db.commit()
                 message = f"{student['name']} AFTERNOON OUT: {cur_time_12}"
                 try:
-                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}. Thank you.")
+                    send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
                     pass
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
             return jsonify({'status': 'error', 'message': f"{student['name']} already completed OUT today"})
         return jsonify({'status': 'error', 'message': 'Invalid scan type'}), 400
     except Exception as e:
-        print(f"[SCAN ERROR] {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f'Server error: {str(e)}'}), 500
@@ -658,14 +599,11 @@ def reports():
     cur = db.cursor()
     filter_date = get_ph_date().isoformat()
     cur.execute("SELECT COUNT(*) as c FROM students")
-    row = cur.fetchone()
-    total = row['c'] if row and row['c'] is not None else 0
+    total = cur.fetchone()['c']
     cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [filter_date])
-    row = cur.fetchone()
-    present = row['c'] if row and row['c'] is not None else 0
+    present = cur.fetchone()['c']
     cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [filter_date])
-    row = cur.fetchone()
-    late = row['c'] if row and row['c'] is not None else 0
+    late = cur.fetchone()['c']
     absent = total - present
     if absent < 0:
         absent = 0
@@ -678,8 +616,7 @@ def reports():
     for d in reversed(dates):
         dd = str(d['date'])
         cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [dd])
-        r = cur.fetchone()
-        p = r['c'] if r and r['c'] is not None else 0
+        p = cur.fetchone()['c']
         trend_labels.append(dd)
         trend_present.append(p)
         trend_absent.append(max(0, total - p))
@@ -688,8 +625,7 @@ def reports():
     section_stats = []
     for sec in sections:
         cur.execute("SELECT COUNT(DISTINCT s.student_id) as c FROM attendance a JOIN students s ON a.student_id = s.student_id WHERE a.date=%s AND s.grade_section=%s AND a.time_in_am IS NOT NULL", [filter_date, sec['grade_section']])
-        r = cur.fetchone()
-        sp = r['c'] if r and r['c'] is not None else 0
+        sp = cur.fetchone()['c']
         section_stats.append({'section': sec['grade_section'], 'total': sec['total_students'], 'present': sp, 'absent': sec['total_students'] - sp})
     cur.execute("SELECT student_id, name, grade_section FROM students WHERE student_id NOT IN (SELECT student_id FROM attendance WHERE date=%s AND time_in_am IS NOT NULL)", [filter_date])
     absent_list = cur.fetchall()
@@ -700,41 +636,24 @@ def reports():
 @app.route('/reset_attendance', methods=['POST'])
 def reset_attendance():
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized Access', 'danger')
+        flash('Unauthorized', 'danger')
         return redirect(url_for('login'))
     db = get_db()
     cur = db.cursor()
     cur.execute("DELETE FROM attendance")
     db.commit()
-    flash('All Attendance Records Have Been Reset Successfully', 'success')
+    flash('Attendance Reset', 'success')
     return redirect(url_for('attendance'))
 
 @app.route('/delete_student/<student_id>', methods=['POST'])
 def delete_student(student_id):
     if not session.get('logged_in') or session['role']!= 'Admin':
-        flash('Unauthorized! Admin access only - Teachers cannot delete students', 'danger')
         return redirect(url_for('students'))
     db = get_db()
     cur = db.cursor()
-    try:
-        cur.execute("DELETE FROM attendance WHERE student_id =%s", (student_id,))
-        cur.execute("DELETE FROM students WHERE student_id =%s", (student_id,))
-        db.commit()
-        qr_file = f"static/qr_codes/{student_id}.png"
-        if os.path.exists(qr_file):
-            os.remove(qr_file)
-        cur.execute("SELECT * FROM students WHERE student_id=%s", [student_id])
-        if not cur.fetchone():
-            up_file = os.path.join(UPLOAD_FOLDER, f"{student_id}.png")
-            if os.path.exists(up_file):
-                try:
-                    os.remove(up_file)
-                except:
-                    pass
-        flash(f'Student {student_id} deleted successfully.', 'success')
-    except Exception as e:
-        db.rollback()
-        flash(f'Error deleting student: {e}', 'danger')
+    cur.execute("DELETE FROM attendance WHERE student_id =%s", (student_id,))
+    cur.execute("DELETE FROM students WHERE student_id =%s", (student_id,))
+    db.commit()
     return redirect(url_for('students'))
 
 @app.route('/logout')
@@ -745,14 +664,12 @@ def logout():
 @app.route('/edit_student/<student_id>', methods=['GET', 'POST'])
 def edit_student(student_id):
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
-        flash('Unauthorized! Admin or Teacher access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
     cur.execute("SELECT * FROM students WHERE student_id =%s", (student_id,))
     student = cur.fetchone()
     if not student:
-        flash('Student not found', 'danger')
         return redirect(url_for('students'))
     if request.method == 'POST':
         name = request.form['name'].strip()
@@ -760,41 +677,40 @@ def edit_student(student_id):
         pname = request.form['parent_name'].strip()
         pcontact = request.form['parent_contact'].strip()
         photo_filename = student.get('photo')
+        photo_data_b64 = student.get('photo_data')
         file = request.files.get('photo')
         if file and file.filename!= '':
-            saved = save_student_photo(file, student_id)
-            if saved:
-                photo_filename = saved
-        cur.execute("UPDATE students SET name=%s, grade_section=%s, parent_name=%s, parent_contact=%s, photo=%s WHERE student_id=%s", (name, section, pname, pcontact, photo_filename, student_id))
+            try:
+                file_bytes = file.read()
+                photo_data_b64 = base64.b64encode(file_bytes).decode('utf-8')
+                ext = os.path.splitext(secure_filename(file.filename))[1].lower() or '.jpg'
+                photo_filename = f"{secure_filename(student_id)}{ext}"
+                try:
+                    with open(os.path.join(UPLOAD_FOLDER, photo_filename), 'wb') as f:
+                        f.write(file_bytes)
+                except:
+                    pass
+            except Exception as e:
+                print(f"Photo error: {e}")
+        cur.execute("UPDATE students SET name=%s, grade_section=%s, parent_name=%s, parent_contact=%s, photo=%s, photo_data=%s WHERE student_id=%s", (name, section, pname, pcontact, photo_filename, photo_data_b64, student_id))
         db.commit()
-        flash(f'Student {name} updated successfully.', 'success')
+        flash(f'Student {name} updated', 'success')
         return redirect(url_for('students'))
     return render_template('edit_student.html', student=student, school=SCHOOL_NAME, grade=GRADE_LEVEL)
 
 @app.route('/view_attendance/<student_id>')
 def view_attendance(student_id):
     if not session.get('logged_in') or session['role'] not in ['Admin', 'Teacher']:
-        flash('Unauthorized! Admin or Teacher access only.', 'danger')
         return redirect(url_for('dashboard'))
     db = get_db()
     cur = db.cursor()
     cur.execute("SELECT * FROM students WHERE student_id=%s", [student_id])
     student = cur.fetchone()
     if not student:
-        flash('Student not found', 'danger')
         return redirect(url_for('students'))
     cur.execute("SELECT DISTINCT date FROM attendance ORDER BY date DESC")
     all_dates = cur.fetchall()
-    school_days = 0
-    for d in all_dates:
-        try:
-            dt = datetime.strptime(str(d['date']), "%Y-%m-%d").date()
-            if dt.weekday() < 5:
-                school_days += 1
-        except:
-            school_days += 1
-    if school_days == 0:
-        school_days = len(all_dates)
+    school_days = len(all_dates) or 1
     cur.execute("SELECT * FROM attendance WHERE student_id=%s ORDER BY date DESC", [student_id])
     records = cur.fetchall()
     present = 0
