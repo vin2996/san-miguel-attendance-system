@@ -333,7 +333,7 @@ def dashboard():
     total = cur.fetchone()['c']
     cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [today_str])
     present_today = cur.fetchone()['c']
-    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [today_str])
+    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status LIKE %s", [today_str, 'Late%'])
     late_today = cur.fetchone()['c']
     absent_today = total - present_today if present_today!=0 else 0
     cur.execute("SELECT s.name, a.time_in_am, a.time_out_am, a.time_in_pm, a.time_out_pm, a.status FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s ORDER BY a.id DESC LIMIT 5", [today_str])
@@ -354,7 +354,7 @@ def students():
     total = cur.fetchone()['c']
     cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [today_str])
     present_today = cur.fetchone()['c']
-    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [today_str])
+    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status LIKE %s", [today_str, 'Late%'])
     late_today = cur.fetchone()['c']
     absent_today = total - present_today
     if absent_today < 0:
@@ -564,11 +564,12 @@ def scan():
             return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
 
         if slot == 'afternoon_in':
-            status_pm = 'Late' if cur_time_24 > LATE_CUTOFF_PM else 'Present'
+            is_late_pm = cur_time_24 > LATE_CUTOFF_PM
             if not record:
+                status_pm = 'Present(halfday)' if not is_late_pm else 'Late(halfday)'
                 cur.execute("INSERT INTO attendance(student_id, date, time_in_pm, status, scanned_by) VALUES(%s,%s,%s,%s,%s)", (student_id, today_str, cur_time_24, status_pm, session.get('username','system')))
                 db.commit()
-                message = f"{student['name']} AFTERNOON IN: {cur_time_12} - {status_pm} (Half Day - No Morning)"
+                message = f"{student['name']} AFTERNOON IN: {cur_time_12} - {status_pm}"
                 try:
                     send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
                 except:
@@ -576,12 +577,13 @@ def scan():
                 return jsonify({'status': 'success', 'name': student['name'], 'section': student['grade_section'], 'time': cur_time_12, 'message': message})
             if record.get('time_in_pm'):
                 return jsonify({'status': 'error', 'message': f"{student['name']} already has AFTERNOON IN"})
-            cur.execute("UPDATE attendance SET time_in_pm=%s WHERE id=%s", (cur_time_24, record['id']))
             if not record.get('time_in_am'):
-                cur.execute("UPDATE attendance SET status=%s WHERE id=%s", (status_pm, record['id']))
+                status_pm = 'Present(halfday)' if not is_late_pm else 'Late(halfday)'
+                cur.execute("UPDATE attendance SET time_in_pm=%s, status=%s WHERE id=%s", (cur_time_24, status_pm, record['id']))
+            else:
+                cur.execute("UPDATE attendance SET time_in_pm=%s WHERE id=%s", (cur_time_24, record['id']))
             db.commit()
-            half_note = " (Half Day - No Morning)" if not record.get('time_in_am') else ""
-            message = f"{student['name']} AFTERNOON IN: {cur_time_12} - {status_pm}{half_note}"
+            message = f"{student['name']} AFTERNOON IN: {cur_time_12} - {record.get('status') if record.get('time_in_am') else status_pm}"
             try:
                 send_iprog_sms(student.get('parent_contact'), f"{SCHOOL_NAME}: {message}")
             except:
@@ -633,7 +635,7 @@ def reports():
     total = cur.fetchone()['c']
     cur.execute("SELECT COUNT(DISTINCT attendance.student_id) as c FROM attendance WHERE attendance.date=%s AND attendance.time_in_am IS NOT NULL", [filter_date])
     present = cur.fetchone()['c']
-    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status='Late'", [filter_date])
+    cur.execute("SELECT COUNT(*) as c FROM attendance WHERE date=%s AND status LIKE %s", [filter_date, 'Late%'])
     late = cur.fetchone()['c']
     absent = total - present
     if absent < 0:
@@ -660,7 +662,7 @@ def reports():
         section_stats.append({'section': sec['grade_section'], 'total': sec['total_students'], 'present': sp, 'absent': sec['total_students'] - sp})
     cur.execute("SELECT student_id, name, grade_section FROM students WHERE student_id NOT IN (SELECT student_id FROM attendance WHERE date=%s AND time_in_am IS NOT NULL)", [filter_date])
     absent_list = cur.fetchall()
-    cur.execute("SELECT s.student_id, s.name, s.grade_section, a.time_in_am FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s AND a.status='Late' ORDER BY a.time_in_am ASC", [filter_date])
+    cur.execute("SELECT s.student_id, s.name, s.grade_section, a.time_in_am FROM attendance a JOIN students s ON a.student_id=s.student_id WHERE a.date=%s AND a.status LIKE %s ORDER BY a.time_in_am ASC", [filter_date, 'Late%'])
     late_list = cur.fetchall()
     return render_template('reports.html', total=total, present=present, late=late, absent=absent, attendance_rate=attendance_rate, filter_date=filter_date, trend_labels=trend_labels, trend_present=trend_present, trend_absent=trend_absent, section_stats=section_stats, absent_list=absent_list, late_list=late_list, school=SCHOOL_NAME, grade=GRADE_LEVEL, today=get_ph_date(), format_time=format_time_12hr)
 
@@ -749,7 +751,7 @@ def view_attendance(student_id):
     for r in records:
         if r.get('time_in_am') or r.get('time_in_pm'):
             present += 1
-        if r.get('status') == 'Late':
+        if r.get('status') and 'Late' in r.get('status'):
             late += 1
     absent = school_days - present
     if absent < 0:
